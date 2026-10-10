@@ -37,4 +37,26 @@ describe('API URL Configuration & Production Endpoint Security Tests', () => {
 
     expect(queryUrl).toBe('https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots?lat=18.5196&lon=73.8553&radiusKm=5');
   });
+
+  it('correctly constructs /api/coolspots endpoint without duplicate /api segments for various custom base URLs', () => {
+    const service = new HybridCoolSpotService();
+
+    // Test with base ending without /api
+    (import.meta.env as any).VITE_API_BASE_URL = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod';
+    let urls: string[] = (service as any).getApiUrlsToTry();
+    expect(urls[0]).toBe('https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots');
+
+    // Test with base ending with /api
+    (import.meta.env as any).VITE_API_BASE_URL = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api';
+    urls = (service as any).getApiUrlsToTry();
+    expect(urls[0]).toBe('https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots');
+
+    // Test with full endpoint ending with /api/coolspots
+    (import.meta.env as any).VITE_API_BASE_URL = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots';
+    urls = (service as any).getApiUrlsToTry();
+    expect(urls[0]).toBe('https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots');
+
+    // Reset env var to restore default
+    delete (import.meta.env as any).VITE_API_BASE_URL;
+  });
 });

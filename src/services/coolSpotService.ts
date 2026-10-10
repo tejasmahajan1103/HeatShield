@@ -241,7 +241,10 @@ export class HybridCoolSpotService implements CoolSpotService {
     const customBase = (import.meta.env?.VITE_API_BASE_URL as string) || (import.meta.env?.VITE_WEATHER_API_URL as string);
     if (customBase) {
       const cleanBase = customBase.replace(/\/+$/, '');
-      const fullUrl = cleanBase.endsWith('/api/coolspots') ? cleanBase : `${cleanBase}/api/coolspots`;
+      if (cleanBase.endsWith('/api/coolspots')) {
+        return [cleanBase];
+      }
+      const fullUrl = cleanBase.endsWith('/api') ? `${cleanBase}/coolspots` : `${cleanBase}/api/coolspots`;
       return [fullUrl];
     }
     const defaultProdEndpoint = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots';
