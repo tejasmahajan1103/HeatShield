@@ -10,6 +10,8 @@ REQUIRED_FILES = [
     "openweather_adapter.py",
     "weather_service.py",
     "heat_risk_engine.py",
+    "coolspot_adapter.py",
+    "coolspot_service.py",
 ]
 
 def build_package():

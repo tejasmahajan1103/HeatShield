@@ -7,27 +7,30 @@ import { HeatRiskPage } from './pages/HeatRiskPage';
 import { CoolSpotsPage } from './pages/CoolSpotsPage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { UserLocationProvider } from './context/UserLocationContext';
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Landing Page Route */}
-        <Route path="/" element={<LandingPage />} />
+    <UserLocationProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Landing Page Route */}
+          <Route path="/" element={<LandingPage />} />
 
-        {/* Application Shell Routes */}
-        <Route path="/app" element={<MainAppLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="heat-risk" element={<HeatRiskPage />} />
-          <Route path="recommendations" element={<RecommendationsPage />} />
-          <Route path="coolspots" element={<CoolSpotsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-        </Route>
+          {/* Application Shell Routes */}
+          <Route path="/app" element={<MainAppLayout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="heat-risk" element={<HeatRiskPage />} />
+            <Route path="recommendations" element={<RecommendationsPage />} />
+            <Route path="coolspots" element={<CoolSpotsPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
 
-        {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Fallback route */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </UserLocationProvider>
   );
 };
 

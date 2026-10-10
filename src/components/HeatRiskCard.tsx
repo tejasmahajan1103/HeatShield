@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, ArrowRight, HelpCircle } from 'lucide-react';
+import { ShieldAlert, ArrowRight, HelpCircle, Thermometer, Flame, Activity } from 'lucide-react';
 import type { HeatRiskResult } from '../types';
 import { getRiskBadgeColor } from '../utils/formatters';
 import { Link } from 'react-router-dom';
@@ -11,15 +11,28 @@ interface HeatRiskCardProps {
 
 export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsLink = true }) => {
   const badgeStyle = getRiskBadgeColor(result.level);
+  const isDemo = result.weatherSnapshot?.isDemo || result.weatherSnapshot?.dataSourceStatus === 'demo_simulated';
+
+  const ambientC = result.weatherSnapshot?.temperatureC ?? 30.0;
+  const ambientF = Number(((ambientC * 9) / 5 + 32).toFixed(1));
+  const humidity = result.weatherSnapshot?.humidityPercent ?? 50;
+
+  const heatIndexC = result.heatIndexC ?? ambientC;
+  const heatIndexF = result.heatIndexF ?? ambientF;
 
   return (
     <div className="bg-white border border-stone-200/90 rounded-3xl p-6 shadow-sm relative">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-stone-100">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Preliminary Assessment</span>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-stone-100 text-slate-700 border border-stone-200 font-mono">
-              {result.modelVersion || 'v1.0-heuristic'}
+              {result.modelVersion || 'v1.1-noaa-nws'}
+            </span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+              isDemo ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+            }`}>
+              {isDemo ? 'Demo Weather Data' : 'Live Weather Provider'}
             </span>
           </div>
           <h3 className="text-xl font-extrabold text-slate-900 mt-1">Heat-Exposure Risk</h3>
@@ -52,6 +65,42 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
               backgroundColor: result.levelColor
             }}
           />
+        </div>
+      </div>
+
+      {/* Requirement 4: Display 3 distinct values (Ambient Temp, NOAA Heat Index, Exposure Risk Score) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-3">
+        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-slate-700 mb-1">
+            <Thermometer className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>Actual Ambient Air</span>
+          </div>
+          <div className="text-base font-black text-slate-900 font-mono">
+            {ambientC.toFixed(1)}°C <span className="text-xs font-normal text-slate-500">({ambientF}°F)</span>
+          </div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Humidity: {humidity}%</div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/90 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-amber-900 mb-1">
+            <Flame className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>NOAA Heat Index</span>
+          </div>
+          <div className="text-base font-black text-amber-950 font-mono">
+            {heatIndexC.toFixed(1)}°C <span className="text-xs font-normal text-amber-700">({heatIndexF}°F)</span>
+          </div>
+          <div className="text-[11px] text-amber-800 mt-0.5">Apparent Temperature</div>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-orange-50/80 border border-orange-200/90 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-orange-950 mb-1">
+            <Activity className="w-4 h-4 text-orange-600 shrink-0" />
+            <span>HeatShield Overall Risk</span>
+          </div>
+          <div className="text-base font-black text-orange-950 font-mono">
+            {result.score}<span className="text-xs font-normal text-orange-700"> / 100</span>
+          </div>
+          <div className="text-[11px] text-orange-800 mt-0.5">Category: {result.level} Risk</div>
         </div>
       </div>
 

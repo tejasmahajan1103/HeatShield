@@ -1,7 +1,14 @@
 import math
 from datetime import datetime
-from typing import Dict, Any, Tuple
-from models import NormalizedWeatherData, HeatRiskInputModel, HeatRiskResultModel
+from typing import Dict, Any, Tuple, List
+from models import (
+    NormalizedWeatherData,
+    HeatRiskInputModel,
+    HeatRiskResultModel,
+    ForecastDataPoint,
+)
+
+
 
 def celsius_to_fahrenheit(c: float) -> float:
     return (c * 9.0 / 5.0) + 32.0
@@ -9,12 +16,13 @@ def celsius_to_fahrenheit(c: float) -> float:
 def fahrenheit_to_celsius(f: float) -> float:
     return (f - 32.0) * 5.0 / 9.0
 
-def calculate_noaa_heat_index(temp_c: float, humidity_percent: float) -> Tuple[float, float]:
+def calculate_noaa_heat_index(temp_input: float, humidity_percent: float) -> Tuple[float, float]:
     """
     Pure NOAA National Weather Service Heat Index Calculation (Rothfusz Regression Equation)
     Official Reference: https://www.wpc.ncep.noaa.gov/heat_index/hi_equation.html
     """
-    T = celsius_to_fahrenheit(temp_c)
+    # Guard against temperature already in Fahrenheit (temp > 55°F)
+    T = float(temp_input) if float(temp_input) > 55.0 else celsius_to_fahrenheit(float(temp_input))
     RH = max(0.0, min(100.0, float(humidity_percent)))
 
     # 1. Simple Heat Index formula (Steadman formula)
@@ -46,6 +54,23 @@ def calculate_noaa_heat_index(temp_c: float, humidity_percent: float) -> Tuple[f
     hi_c = fahrenheit_to_celsius(hi_f)
     return round(hi_f, 1), round(hi_c, 1)
 
+def is_daylight_time(planned_time_str: str, lat: float = 12.9716, lon: float = 77.5946) -> bool:
+
+    """
+    Determines if the given planned time string (e.g. '14:30', '20:30') falls within daylight hours.
+    Standard astronomical daylight window (~06:00 to ~18:30 local solar time).
+    """
+    if not planned_time_str or ":" not in str(planned_time_str):
+        return True
+    try:
+        parts = str(planned_time_str).strip().split(":")
+        hour = int(parts[0])
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        decimal_hour = hour + minute / 60.0
+        return 6.0 <= decimal_hour < 18.5
+    except Exception:
+        return True
+
 def calculate_heat_risk(risk_input: HeatRiskInputModel, weather: NormalizedWeatherData) -> HeatRiskResultModel:
     if not risk_input.location or not risk_input.location.strip():
         raise ValueError("Invalid location: A location name is required.")
@@ -59,7 +84,10 @@ def calculate_heat_risk(risk_input: HeatRiskInputModel, weather: NormalizedWeath
 
     hi_f, hi_c = calculate_noaa_heat_index(temp_c, humidity)
 
-    # Risk level categorization
+    # Daylight / Nighttime Detection
+    is_daylight = is_daylight_time(risk_input.plannedTime, weather.latitude or 12.9716, weather.longitude or 77.5946)
+
+    # Risk level categorization based on NOAA NWS Heat Index thresholds
     if hi_f >= 103.0:
         level = "Extreme"
         level_color = "#EF4444"
@@ -77,12 +105,15 @@ def calculate_heat_risk(risk_input: HeatRiskInputModel, weather: NormalizedWeath
         level_color = "#10B981"
         summary = "Environmental heat index is within mild limits. Baseline hydration recommended."
 
-    # Shade & Activity details
-    shade_desc = "Direct sunshine (NWS notes direct sun can increase effective heat sensation by up to +15°F)"
-    if risk_input.shadeAvailability == "full_shade":
+    # Shade & Activity details (Accounts for Nighttime)
+    if not is_daylight:
+        shade_desc = "Nighttime Assessment: Direct solar radiation is absent after sunset."
+    elif risk_input.shadeAvailability == "full_shade":
         shade_desc = "Continuous shade coverage (provides solar radiation relief)"
     elif risk_input.shadeAvailability == "partial_shade":
         shade_desc = "Partial shade coverage (intermittent solar protection)"
+    else:
+        shade_desc = "Direct sunshine (NWS notes direct sun can increase effective heat sensation by up to +15°F)"
 
     activity_meta = {
         "walking": {"label": "Brisk Walking (Moderate Metabolic Load)", "impact": "Low"},
@@ -102,13 +133,28 @@ def calculate_heat_risk(risk_input: HeatRiskInputModel, weather: NormalizedWeath
     else:
         duration_label = "> 2 hours prolonged exposure"
 
-    # Presentation Score Calculation
-    base_score = round(max(10, min(99, ((hi_f - 65.0) / 65.0) * 100.0)))
-    act_bonus = 8 if risk_input.activity in ["running", "outdoor_work"] else (4 if risk_input.activity == "cycling" else 0)
-    dur_bonus = 10 if risk_input.durationMinutes > 120 else (5 if risk_input.durationMinutes > 60 else 0)
-    sun_bonus = 6 if risk_input.shadeAvailability == "direct_sun" else (2 if risk_input.shadeAvailability == "partial_shade" else -4)
+    # Presentation Score Calculation based on NOAA NWS Heat Index ranges
+    if hi_f <= 70.0:
+        base_score = 5.0
+    elif hi_f < 80.0:
+        base_score = 5.0 + ((hi_f - 70.0) / 10.0) * 20.0  # 5 to 25
+    elif hi_f < 90.0:
+        base_score = 26.0 + ((hi_f - 80.0) / 10.0) * 24.0 # 26 to 50
+    elif hi_f < 103.0:
+        base_score = 51.0 + ((hi_f - 90.0) / 13.0) * 24.0 # 51 to 75
+    else:
+        base_score = min(95.0, 76.0 + ((hi_f - 103.0) / 20.0) * 19.0) # 76 to 95
 
-    presentation_score = min(99, max(8, base_score + act_bonus + dur_bonus + sun_bonus))
+    act_bonus = 8 if risk_input.activity in ["running", "outdoor_work"] else (3 if risk_input.activity == "cycling" else 0)
+    dur_bonus = 7 if risk_input.durationMinutes > 120 else (4 if risk_input.durationMinutes > 60 else (-2 if risk_input.durationMinutes < 30 else 0))
+
+    # At night, direct solar radiation bonus is zero
+    if not is_daylight:
+        sun_bonus = 0
+    else:
+        sun_bonus = 5 if risk_input.shadeAvailability == "direct_sun" else (0 if risk_input.shadeAvailability == "partial_shade" else -5)
+
+    presentation_score = min(99, max(5, round(base_score + act_bonus + dur_bonus + sun_bonus)))
 
     contributing_factors = [
         {
@@ -127,13 +173,14 @@ def calculate_heat_risk(risk_input: HeatRiskInputModel, weather: NormalizedWeath
             "description": duration_label,
         },
         {
-            "factor": f"Solar Exposure ({risk_input.shadeAvailability.replace('_', ' ')})",
-            "impact": "High" if risk_input.shadeAvailability == "direct_sun" else "Low",
+            "factor": f"Solar Exposure ({'Nighttime' if not is_daylight else risk_input.shadeAvailability.replace('_', ' ')})",
+            "impact": "Low" if not is_daylight else ("High" if risk_input.shadeAvailability == "direct_sun" else "Low"),
             "description": shade_desc,
         },
     ]
 
     demo_notice = (
+
         "Demo Telemetry Mode: Uses simulated weather data."
         if weather.isDemo
         else f"Live Weather Provider: OpenWeather API ({weather.dataSourceStatus})"
@@ -156,3 +203,5 @@ def calculate_heat_risk(risk_input: HeatRiskInputModel, weather: NormalizedWeath
         heatIndexF=hi_f,
         calculationMethod="NOAA NWS Rothfusz Heat Index Equation",
     )
+
+

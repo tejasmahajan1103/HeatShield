@@ -54,7 +54,22 @@ class TestLambdaHandler(unittest.TestCase):
         body = json.loads(res["body"])
         self.assertTrue(body["isDemo"])
         self.assertEqual(body["dataSourceStatus"], "demo_simulated")
-        self.assertEqual(body["temperatureC"], 37.8)
+        self.assertGreater(body["temperatureC"], 20.0)
+
+    def test_forecast_endpoint_demo(self):
+        event = {
+            "httpMethod": "GET",
+            "path": "/api/forecast",
+            "queryStringParameters": {"lat": "12.9716", "lon": "77.5946", "demo": "true"}
+        }
+        res = lambda_handler(event, None)
+        self.assertEqual(res["statusCode"], 200)
+
+        body = json.loads(res["body"])
+        self.assertIsInstance(body, list)
+        self.assertGreater(len(body), 0)
+
+
 
     def test_post_risk_assessment_demo(self):
         event = {

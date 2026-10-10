@@ -1,4 +1,4 @@
-import type { HeatRiskResult, Recommendation, HeatRiskInput, AlternativeTimeWindow } from '../types';
+import type { HeatRiskResult, Recommendation, HeatRiskInput, AlternativeTimeWindow, CoolSpot } from '../types';
 import { coolSpotService } from './coolSpotService';
 
 export interface RecommendationService {
@@ -15,7 +15,18 @@ export interface RecommendationService {
  */
 export class StructuredRecommendationService implements RecommendationService {
   async generateRecommendations(input: HeatRiskInput, result: HeatRiskResult): Promise<Recommendation> {
-    const spots = await coolSpotService.getCoolSpots({ maxDistanceKm: 3 });
+    const userCoordinates = (input.latitude !== undefined && input.longitude !== undefined)
+      ? { latitude: input.latitude, longitude: input.longitude }
+      : undefined;
+
+    let spots: CoolSpot[] = [];
+    let coolSpotDiscoveryFailed = false;
+    try {
+      spots = await coolSpotService.getCoolSpots({ maxDistanceKm: 5, userCoordinates });
+    } catch (err) {
+      console.warn('CoolSpot discovery unavailable for recommendations:', err);
+      coolSpotDiscoveryFailed = true;
+    }
     const topSpots = spots.slice(0, 3);
 
     const primaryAdvice: string[] = [];
@@ -23,36 +34,38 @@ export class StructuredRecommendationService implements RecommendationService {
     let activityModification = '';
     let restInterval = '';
 
-    if (result.score >= 80) {
-      primaryAdvice.push('Consider rescheduling or minimizing strenuous physical exertion during extreme thermal stress.');
-      primaryAdvice.push('Take frequent rest breaks in active shade or air-conditioned environments.');
-      primaryAdvice.push('Drink fluids regularly and balance with electrolyte intake during heavy sweating.');
+    if (result.level === 'Extreme' || result.score >= 80) {
+      primaryAdvice.push('Reduce or stop outdoor physical exertion immediately during severe heat.');
+      primaryAdvice.push('Seek an indoor air-conditioned space or verified cooling sanctuary.');
+      primaryAdvice.push('Drink cool water (1 cup for every 15-20 minutes) and supplement electrolytes.');
 
-      hydrationGuidance = 'Maintain regular fluid intake in small, frequent amounts. Do not wait until feeling thirsty.';
-      activityModification = `For ${input.activity.replace('_', ' ')}, reduce physical intensity and avoid peak solar radiation hours.`;
-      restInterval = 'Schedule a shaded rest pause every 20-30 minutes of exertion.';
-    } else if (result.score >= 60) {
-      primaryAdvice.push('Pace continuous outdoor exertion and monitor body signals.');
-      primaryAdvice.push('Wear lightweight, breathable, light-colored clothing and UV sun protection.');
-      primaryAdvice.push('Keep cool water accessible and use damp towels for skin cooling.');
+      hydrationGuidance = 'Drink cool water frequently in small amounts. Do not wait for thirst. Supplement electrolytes if sweating heavily.';
+      activityModification = `For ${input.activity.replace('_', ' ')}, suspend or reschedule activity to cooler morning or evening hours.`;
+      restInterval = 'Rest immediately in a cooled or shaded environment for at least 15-20 minutes per half hour.';
+    } else if (result.level === 'High' || result.score >= 60) {
+      primaryAdvice.push('Reduce outdoor exertion intensity and limit total exposure time.');
+      primaryAdvice.push('Seek active shade or indoor cooling spots for mandatory rest breaks.');
+      primaryAdvice.push('Maintain continuous hydration with water and avoid dehydrating beverages.');
 
-      hydrationGuidance = 'Drink water frequently throughout exposure. Avoid alcohol or high-caffeine beverages.';
-      activityModification = 'Maintain a moderate pace and avoid max-effort intervals during peak heat.';
-      restInterval = 'Take a 10-minute shade break every 30-40 minutes.';
-    } else if (result.score >= 35) {
-      primaryAdvice.push('Stay mindful of cumulative heat exposure over time.');
-      primaryAdvice.push('Apply SPF 30+ broad-spectrum sunscreen and wear protective eyewear.');
+      hydrationGuidance = 'Drink water regularly throughout exposure. Avoid caffeine and alcoholic beverages.';
+      activityModification = `Pace outdoor ${input.activity.replace('_', ' ')} at low intensity. Avoid peak solar hours.`;
+      restInterval = 'Take a 10-15 minute shade break every 25-30 minutes.';
+    } else if (result.level === 'Moderate' || result.score >= 35) {
+      primaryAdvice.push('Pace physical exertion and utilize available shade along your route.');
+      primaryAdvice.push('Keep hydration accessible and take routine rest breaks.');
+      primaryAdvice.push('Wear light-colored, breathable apparel and apply broad-spectrum sunscreen.');
 
-      hydrationGuidance = 'Drink water at regular intervals to maintain healthy hydration.';
-      activityModification = 'Standard activity pace supported; monitor skin flushing and body comfort.';
-      restInterval = 'Take routine brief rest breaks in shade.';
+      hydrationGuidance = 'Drink fluids regularly to maintain healthy hydration balance.';
+      activityModification = 'Maintain moderate pace; monitor skin flushing, heat discomfort, and fatigue.';
+      restInterval = 'Take routine 5-10 minute rest breaks in shaded areas.';
     } else {
-      primaryAdvice.push('Environmental heat stress is currently low for routine activities.');
-      primaryAdvice.push('Maintain general hydration and sun protection.');
+      primaryAdvice.push('Heat stress risk is currently low for general outdoor activities.');
+      primaryAdvice.push('Maintain standard preventive hydration and sun protection.');
+      primaryAdvice.push('Stay aware of environmental temperature increases over extended periods.');
 
-      hydrationGuidance = 'Drink fluids regularly to satisfy thirst.';
-      activityModification = 'Normal activity pace supported.';
-      restInterval = 'Standard routine breaks.';
+      hydrationGuidance = 'Satisfy thirst with fresh water at normal intervals.';
+      activityModification = 'Normal activity pace supported under current weather conditions.';
+      restInterval = 'Standard routine breaks as needed.';
     }
 
     const emergencySigns = [
@@ -69,6 +82,11 @@ export class StructuredRecommendationService implements RecommendationService {
       forecastAvailable: false
     };
 
+    let disclaimer = 'General public health guidance based on preliminary risk heuristics. Not medical advice. Seek medical care if experiencing heat illness symptoms.';
+    if (coolSpotDiscoveryFailed) {
+      disclaimer += ' (Nearby cooling spot discovery was unavailable at this time.)';
+    }
+
     return {
       riskScore: result.score,
       riskLevel: result.level,
@@ -79,9 +97,10 @@ export class StructuredRecommendationService implements RecommendationService {
       emergencySigns,
       suggestedCoolSpots: topSpots,
       suggestedAlternativeTime,
-      disclaimer: 'General public health guidance based on preliminary risk heuristics. Not medical advice. Seek medical care if experiencing heat illness symptoms.'
+      disclaimer
     };
   }
 }
 
 export const recommendationService = new StructuredRecommendationService();
+

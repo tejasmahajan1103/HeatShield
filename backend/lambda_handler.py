@@ -8,6 +8,10 @@ from openweather_adapter import OpenWeatherError
 import os
 
 weather_svc = WeatherService()
+# Reuse this service across warm Lambda invocations so its short-lived geographic
+# cache can reduce repeated calls to the public Overpass provider.
+from coolspot_service import CoolSpotService
+coolspot_svc = CoolSpotService()
 
 def build_response(status_code: int, body: Dict[str, Any], headers: Dict[str, str] = None) -> Dict[str, Any]:
     allowed_origin = os.environ.get("ALLOWED_ORIGIN", "*")
@@ -41,14 +45,108 @@ def route_api_request(method: str, path: str, query_params: Dict[str, str], body
 
     if path in ["/api/weather", "/weather"] and method == "GET":
         location = query_params.get("location", "").strip()
+        lat_str = query_params.get("lat") or query_params.get("latitude")
+        lon_str = query_params.get("lon") or query_params.get("longitude")
         allow_demo = query_params.get("demo", "").lower() in ["true", "1"]
+
+        if lat_str and lon_str:
+            try:
+                lat = float(lat_str)
+                lon = float(lon_str)
+                weather = weather_svc.get_weather_by_coords(lat, lon, allow_demo_fallback=allow_demo)
+                return build_response(200, weather.to_dict())
+            except ValueError:
+                return build_response(400, {"error": "Invalid numeric coordinates for lat/lon", "errorCode": "INVALID_INPUT"})
+            except OpenWeatherError as e:
+                return build_response(e.status_code, {"error": e.message, "errorCode": e.error_code})
+            except Exception as e:
+                return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
+
         if not location:
-            return build_response(400, {"error": "Missing required query parameter: location", "errorCode": "INVALID_INPUT"})
+            return build_response(400, {"error": "Missing required query parameter: location or lat/lon coordinates", "errorCode": "INVALID_INPUT"})
 
         try:
             weather = weather_svc.get_weather(location, allow_demo_fallback=allow_demo)
             return build_response(200, weather.to_dict())
         except OpenWeatherError as e:
+            return build_response(e.status_code, {"error": e.message, "errorCode": e.error_code})
+        except Exception as e:
+            return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
+
+    if path in ["/api/forecast", "/forecast"] and method == "GET":
+        location = query_params.get("location", "").strip()
+        lat_str = query_params.get("lat") or query_params.get("latitude")
+        lon_str = query_params.get("lon") or query_params.get("longitude")
+        allow_demo = query_params.get("demo", "").lower() in ["true", "1"]
+
+        if lat_str and lon_str:
+            try:
+                lat = float(lat_str)
+                lon = float(lon_str)
+                forecasts = weather_svc.get_forecast_by_coords(lat, lon, allow_demo_fallback=allow_demo)
+                return build_response(200, [f.to_dict() for f in forecasts])
+            except ValueError:
+                return build_response(400, {"error": "Invalid numeric coordinates for lat/lon", "errorCode": "INVALID_INPUT"})
+            except OpenWeatherError as e:
+                return build_response(e.status_code, {"error": e.message, "errorCode": e.error_code})
+            except Exception as e:
+                return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
+
+        if not location:
+            return build_response(400, {"error": "Missing required parameter: location or lat/lon coordinates", "errorCode": "INVALID_INPUT"})
+
+        try:
+            forecasts = weather_svc.get_forecast(location, allow_demo_fallback=allow_demo)
+            return build_response(200, [f.to_dict() for f in forecasts])
+        except OpenWeatherError as e:
+            return build_response(e.status_code, {"error": e.message, "errorCode": e.error_code})
+        except Exception as e:
+            return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
+
+    if path in ["/api/overnight-forecast", "/overnight-forecast"] and method == "GET":
+        lat_str = query_params.get("lat") or query_params.get("latitude", "12.9716")
+        lon_str = query_params.get("lon") or query_params.get("longitude", "77.5946")
+        allow_demo = query_params.get("demo", "").lower() in ["true", "1"]
+
+        try:
+            lat = float(lat_str)
+            lon = float(lon_str)
+            forecasts = weather_svc.get_forecast_by_coords(lat, lon, allow_demo_fallback=allow_demo)
+            from heat_risk_engine import calculate_overnight_summary
+            is_demo = not weather_svc.is_live_configured() or allow_demo
+            status_str = "demo_simulated" if is_demo else "live_forecast"
+            summary = calculate_overnight_summary(lat, lon, forecasts, is_demo=is_demo, data_source_status=status_str)
+            return build_response(200, summary.to_dict())
+        except ValueError:
+            return build_response(400, {"error": "Invalid numeric coordinates", "errorCode": "INVALID_INPUT"})
+        except OpenWeatherError as e:
+            return build_response(e.status_code, {"error": e.message, "errorCode": e.error_code})
+        except Exception as e:
+            return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
+
+
+
+    if path in ["/api/coolspots", "/coolspots"] and method == "GET":
+        lat_str = query_params.get("lat") or query_params.get("latitude")
+        lon_str = query_params.get("lon") or query_params.get("longitude")
+        radius_str = query_params.get("radiusKm") or query_params.get("radius", "5.0")
+        allow_demo = query_params.get("demo", "").lower() in ["true", "1"]
+
+        if not lat_str or not lon_str:
+            return build_response(400, {"error": "Missing required parameters: lat and lon", "errorCode": "INVALID_INPUT"})
+
+        try:
+            lat = float(lat_str)
+            lon = float(lon_str)
+            radius_km = float(radius_str)
+        except ValueError:
+            return build_response(400, {"error": "Invalid numeric coordinates or radius parameter", "errorCode": "INVALID_INPUT"})
+
+        try:
+            from coolspot_service import CoolSpotError
+            spots = coolspot_svc.get_nearby_coolspots(lat, lon, radius_km=radius_km, allow_demo=allow_demo)
+            return build_response(200, spots)
+        except CoolSpotError as e:
             return build_response(e.status_code, {"error": e.message, "errorCode": e.error_code})
         except Exception as e:
             return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
@@ -64,9 +162,14 @@ def route_api_request(method: str, path: str, query_params: Dict[str, str], body
             duration_minutes = int(body_json.get("durationMinutes", 45))
             shade = body_json.get("shadeAvailability", "partial_shade")
             allow_demo = body_json.get("allowDemoFallback", False)
+            lat_val = body_json.get("latitude")
+            lon_val = body_json.get("longitude")
 
-            if not location:
-                return build_response(400, {"error": "Location field is required", "errorCode": "INVALID_INPUT"})
+            if not location and (lat_val is None or lon_val is None):
+                return build_response(400, {"error": "Location or lat/lon fields are required", "errorCode": "INVALID_INPUT"})
+
+            if not location and lat_val is not None and lon_val is not None:
+                location = f"GPS ({float(lat_val):.4f}, {float(lon_val):.4f})"
 
             risk_input = HeatRiskInputModel(
                 location=location,
@@ -76,7 +179,14 @@ def route_api_request(method: str, path: str, query_params: Dict[str, str], body
                 shadeAvailability=shade
             )
 
-            weather = weather_svc.get_weather(location, allow_demo_fallback=allow_demo)
+            if lat_val is not None and lon_val is not None:
+                try:
+                    weather = weather_svc.get_weather_by_coords(float(lat_val), float(lon_val), allow_demo_fallback=allow_demo)
+                except (ValueError, TypeError):
+                    weather = weather_svc.get_weather(location, allow_demo_fallback=allow_demo)
+            else:
+                weather = weather_svc.get_weather(location, allow_demo_fallback=allow_demo)
+
             result = calculate_heat_risk(risk_input, weather)
             return build_response(200, result.to_dict())
         except OpenWeatherError as e:

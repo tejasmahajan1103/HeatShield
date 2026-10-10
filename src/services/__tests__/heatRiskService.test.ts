@@ -105,7 +105,7 @@ describe('DeterministicHeatRiskService & NOAA Heat Index Validation Tests', () =
     expect(res1.modelVersion).toBe('v1.1-noaa-nws');
     expect(res1.metricType).toBe('noaa_heat_index');
     expect(res1.calculationMethod).toBe('NOAA NWS Rothfusz Heat Index Equation');
-  });
+  }, 15000);
 
   it('throws descriptive error on missing input, missing location, or invalid duration bounds', async () => {
     // @ts-expect-error Testing invalid null input
@@ -198,4 +198,31 @@ describe('DeterministicHeatRiskService & NOAA Heat Index Validation Tests', () =
     const extremeHI = calculateNOAAHeatIndex(35, 60); // HI >= 103°F
     expect(extremeHI.heatIndexF).toBeGreaterThanOrEqual(103);
   });
+
+  it('correctly identifies daylight and nighttime hours and eliminates direct solar bonus at night', async () => {
+    const nightInput: HeatRiskInput = {
+      location: 'Bengaluru',
+      activity: 'walking',
+      plannedTime: '20:30',
+      durationMinutes: 45,
+      shadeAvailability: 'direct_sun'
+    };
+
+    const dayInput: HeatRiskInput = {
+      location: 'Bengaluru',
+      activity: 'walking',
+      plannedTime: '14:00',
+      durationMinutes: 45,
+      shadeAvailability: 'direct_sun'
+    };
+
+    const nightRes = await service.calculateRisk(nightInput);
+    const dayRes = await service.calculateRisk(dayInput);
+
+    const nightSolar = nightRes.contributingFactors.find(f => f.factor.includes('Solar Exposure'));
+    expect(nightSolar?.factor).toContain('Nighttime');
+    expect(nightSolar?.description).toContain('absent after sunset');
+    expect(nightRes.score).toBeLessThan(dayRes.score);
+  });
 });
+

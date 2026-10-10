@@ -28,6 +28,10 @@ class ForecastDataPoint:
     humidityPercent: float
     conditionText: str
 
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
 @dataclass
 class HeatRiskInputModel:
     location: str
@@ -56,3 +60,5 @@ class HeatRiskResultModel:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+

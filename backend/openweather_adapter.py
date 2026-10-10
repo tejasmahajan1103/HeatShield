@@ -60,12 +60,21 @@ class OpenWeatherAdapter:
         except json.JSONDecodeError:
             raise OpenWeatherError("Received malformed JSON response from OpenWeather provider", status_code=502, error_code="MALFORMED_RESPONSE")
 
+    def fetch_current_weather_by_coords(self, lat: float, lon: float) -> NormalizedWeatherData:
+        if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lon <= 180.0):
+            raise OpenWeatherError("Invalid coordinates: Latitude must be between -90 and 90, Longitude between -180 and 180", status_code=400, error_code="INVALID_INPUT")
+
+        raw = self._make_request("weather", {"lat": f"{lat:.4f}", "lon": f"{lon:.4f}", "units": "metric"})
+        return self._parse_weather_response(raw, fallback_location=f"GPS ({lat:.4f}, {lon:.4f})")
+
     def fetch_current_weather(self, location: str) -> NormalizedWeatherData:
         if not location or not location.strip():
             raise OpenWeatherError("Location query cannot be empty", status_code=400, error_code="INVALID_INPUT")
 
         raw = self._make_request("weather", {"q": location.strip(), "units": "metric"})
+        return self._parse_weather_response(raw, fallback_location=location.strip())
 
+    def _parse_weather_response(self, raw: Dict[str, Any], fallback_location: str) -> NormalizedWeatherData:
         main = raw.get("main", {})
         temp_c = main.get("temp")
         humidity = main.get("humidity")
@@ -87,12 +96,13 @@ class OpenWeatherAdapter:
         sys_data = raw.get("sys", {})
         country = sys_data.get("country", "")
 
-        name = raw.get("name", location)
+        name = raw.get("name", fallback_location)
+        loc_name = f"{name}, {country}".strip(", ") if country else name
         dt_unix = raw.get("dt")
         obs_time = datetime.fromtimestamp(dt_unix, tz=timezone.utc).isoformat() if dt_unix else None
 
         return NormalizedWeatherData(
-            locationName=f"{name}, {country}".strip(", "),
+            locationName=loc_name,
             temperatureC=round(float(temp_c), 1),
             humidityPercent=round(float(humidity), 1),
             uvIndex=0.0,
@@ -113,6 +123,16 @@ class OpenWeatherAdapter:
             raise OpenWeatherError("Location query cannot be empty", status_code=400, error_code="INVALID_INPUT")
 
         raw = self._make_request("forecast", {"q": location.strip(), "units": "metric"})
+        return self._parse_forecast_items(raw)
+
+    def fetch_forecast_by_coords(self, lat: float, lon: float) -> List[ForecastDataPoint]:
+        if not (-90.0 <= lat <= 90.0) or not (-180.0 <= lon <= 180.0):
+            raise OpenWeatherError("Invalid coordinates: Latitude must be between -90 and 90, Longitude between -180 and 180", status_code=400, error_code="INVALID_INPUT")
+
+        raw = self._make_request("forecast", {"lat": f"{lat:.4f}", "lon": f"{lon:.4f}", "units": "metric"})
+        return self._parse_forecast_items(raw)
+
+    def _parse_forecast_items(self, raw: Dict[str, Any]) -> List[ForecastDataPoint]:
         items = raw.get("list", [])
         results: List[ForecastDataPoint] = []
 
@@ -132,3 +152,5 @@ class OpenWeatherAdapter:
             ))
 
         return results
+
+

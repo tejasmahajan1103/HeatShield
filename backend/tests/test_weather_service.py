@@ -22,17 +22,31 @@ class TestWeatherService(unittest.TestCase):
         weather = svc.get_weather("Cubbon Park", allow_demo_fallback=True)
         self.assertTrue(weather.isDemo)
         self.assertEqual(weather.dataSourceStatus, "demo_simulated")
-        self.assertEqual(weather.temperatureC, 35.0)
+        self.assertEqual(weather.temperatureC, 29.8)
 
     def test_demo_weather_city_variations(self):
         svc = WeatherService(api_key="")
         delhi_w = svc.get_demo_weather("North Delhi")
-        self.assertEqual(delhi_w.temperatureC, 41.5)
-        self.assertEqual(delhi_w.humidityPercent, 48.0)
+        self.assertEqual(delhi_w.temperatureC, 38.5)
+        self.assertEqual(delhi_w.humidityPercent, 42.0)
 
         mumbai_w = svc.get_demo_weather("Mumbai Coastal")
-        self.assertEqual(mumbai_w.temperatureC, 34.2)
-        self.assertEqual(mumbai_w.humidityPercent, 82.0)
+        self.assertEqual(mumbai_w.temperatureC, 33.2)
+        self.assertEqual(mumbai_w.humidityPercent, 78.0)
+
+    def test_get_weather_by_coords_demo_fallback(self):
+        svc = WeatherService(api_key="")
+        weather = svc.get_weather_by_coords(12.9716, 77.5946, allow_demo_fallback=True)
+        self.assertTrue(weather.isDemo)
+        self.assertEqual(weather.latitude, 12.9716)
+        self.assertEqual(weather.longitude, 77.5946)
+
+    def test_get_forecast_by_coords_demo_fallback(self):
+        svc = WeatherService(api_key="")
+        forecasts = svc.get_forecast_by_coords(12.9716, 77.5946, allow_demo_fallback=True)
+        self.assertGreater(len(forecasts), 0)
+        self.assertIn("Today", forecasts[0].timestamp)
+
 
 if __name__ == "__main__":
     unittest.main()

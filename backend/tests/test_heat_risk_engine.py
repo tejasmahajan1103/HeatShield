@@ -141,5 +141,66 @@ class TestHeatRiskEngine(unittest.TestCase):
             calculate_heat_risk(invalid_dur, weather)
         self.assertIn("duration", str(cm.exception))
 
+    def test_nighttime_solar_radiation_eliminated(self):
+        weather = NormalizedWeatherData(
+            locationName="Bengaluru",
+            temperatureC=32.0,
+            humidityPercent=60.0,
+            uvIndex=0.0,
+            wetBulbTempC=0.0,
+            windSpeedKmh=10.0,
+            conditionText="Clear Night",
+            isDemo=True,
+            dataSourceStatus="demo_simulated",
+            fetchedAt="2026-10-10T20:30:00Z",
+        )
+        night_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="walking",
+            plannedTime="20:30",
+            durationMinutes=45,
+            shadeAvailability="direct_sun",
+        )
+        res = calculate_heat_risk(night_input, weather)
+        solar_factor = [f for f in res.contributingFactors if "Solar Exposure" in f["factor"]][0]
+        self.assertIn("Nighttime", solar_factor["factor"])
+        self.assertIn("absent after sunset", solar_factor["description"])
+        # Verify score is lower at night than during daytime with direct sun
+        day_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="walking",
+            plannedTime="14:00",
+            durationMinutes=45,
+            shadeAvailability="direct_sun",
+        )
+        res_day = calculate_heat_risk(day_input, weather)
+        self.assertLess(res.score, res_day.score)
+
+    def test_hot_humid_nighttime_risk(self):
+        weather = NormalizedWeatherData(
+            locationName="Mumbai Coastal",
+            temperatureC=33.0,
+            humidityPercent=75.0,
+            uvIndex=0.0,
+            wetBulbTempC=0.0,
+            windSpeedKmh=12.0,
+            conditionText="Humid Night",
+            isDemo=False,
+            dataSourceStatus="live_sensor",
+            fetchedAt="2026-10-10T22:00:00Z",
+        )
+        night_humid_input = HeatRiskInputModel(
+            location="Mumbai",
+            activity="running",
+            plannedTime="22:00",
+            durationMinutes=60,
+            shadeAvailability="direct_sun",
+        )
+        res = calculate_heat_risk(night_humid_input, weather)
+        self.assertIn(res.level, ["High", "Extreme"])
+        self.assertGreater(res.score, 50)
+
 if __name__ == "__main__":
     unittest.main()
+
+
