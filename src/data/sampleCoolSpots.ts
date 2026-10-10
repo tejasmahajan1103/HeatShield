@@ -18,7 +18,8 @@ export const SAMPLE_COOLSPOTS: CoolSpot[] = [
     lastVerifiedTimestamp: '2026-10-09T08:00:00Z',
     description: 'Dense banyan tree canopy providing 85%+ shade cover with clean drinking water kiosk nearby.',
     address: 'Kasturba Road, Bengaluru, KA',
-    amenities: ['Dense Tree Shade', 'Potable Water Fountain', 'Benches', 'Restrooms']
+    amenities: ['Dense Tree Shade', 'Potable Water Fountain', 'Benches', 'Restrooms'],
+    isSampleData: true
   },
   {
     id: 'cs-2',
@@ -37,7 +38,8 @@ export const SAMPLE_COOLSPOTS: CoolSpot[] = [
     lastVerifiedTimestamp: '2026-10-09T09:30:00Z',
     description: 'Fully air-conditioned public concourse with seating areas, free public Wi-Fi, and cold water station.',
     address: 'MG Road Metro Station Concourse',
-    amenities: ['HVAC Air Conditioning', 'Free Drinking Water', 'Seating', 'Emergency First Aid']
+    amenities: ['HVAC Air Conditioning', 'Free Drinking Water', 'Seating', 'Emergency First Aid'],
+    isSampleData: true
   },
   {
     id: 'cs-3',
@@ -56,7 +58,8 @@ export const SAMPLE_COOLSPOTS: CoolSpot[] = [
     lastVerifiedTimestamp: '2026-10-09T07:15:00Z',
     description: 'High-capacity RO chilled water dispenser with misting fans under cover.',
     address: 'Ambedkar Veedhi, Bengaluru, KA',
-    amenities: ['Chilled RO Water', 'Misting Fan', 'Shaded Seating']
+    amenities: ['Chilled RO Water', 'Misting Fan', 'Shaded Seating'],
+    isSampleData: true
   },
   {
     id: 'cs-4',
@@ -75,7 +78,8 @@ export const SAMPLE_COOLSPOTS: CoolSpot[] = [
     lastVerifiedTimestamp: '2026-10-09T10:00:00Z',
     description: 'Designated extreme-heat sanctuary equipped with air filtration, electrolyte drinks, and medical triage kit.',
     address: 'Central Library Building, Sampangi Rama Nagar',
-    amenities: ['Full Air Conditioning', 'Electrolyte Dispenser', 'Paramedic on Call', 'Charging Outlets']
+    amenities: ['Full Air Conditioning', 'Electrolyte Dispenser', 'Paramedic on Call', 'Charging Outlets'],
+    isSampleData: true
   },
   {
     id: 'cs-5',
@@ -94,7 +98,8 @@ export const SAMPLE_COOLSPOTS: CoolSpot[] = [
     lastVerifiedTimestamp: '2026-10-09T08:45:00Z',
     description: 'Extensive botanical shade with natural cooling microclimate around the central glass house pond.',
     address: 'Mavalli, Bengaluru, KA',
-    amenities: ['Forest Canopy', 'Water Refill Stations', 'Benches', 'Public Toilets']
+    amenities: ['Forest Canopy', 'Water Refill Stations', 'Benches', 'Public Toilets'],
+    isSampleData: true
   },
   {
     id: 'cs-6',
@@ -113,6 +118,7 @@ export const SAMPLE_COOLSPOTS: CoolSpot[] = [
     lastVerifiedTimestamp: '2026-10-08T16:00:00Z',
     description: 'Large covered public arcade with fans and indoor seating. Water fountains under maintenance.',
     address: 'Majestic Bus Stand Concourse',
-    amenities: ['Shaded Hall', 'Ventilation Fans', 'Seating', 'Accessible Entrance']
+    amenities: ['Shaded Hall', 'Ventilation Fans', 'Seating', 'Accessible Entrance'],
+    isSampleData: true
   }
 ];

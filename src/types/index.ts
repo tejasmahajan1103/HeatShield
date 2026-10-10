@@ -12,6 +12,7 @@ export interface WeatherData {
   windSpeedKmh: number;
   conditionText: string;
   isDemo: boolean;
+  dataSourceStatus: 'demo_simulated' | 'live_sensor' | 'error_fallback';
   fetchedAt: string;
 }
 
@@ -36,11 +37,16 @@ export interface HeatRiskResult {
   levelColor: string;
   summary: string;
   contributingFactors: ContributingFactor[];
-  uncertaintyScore: number; // percentage (e.g. 15%)
+  uncertaintyScore: number; // percentage (e.g. 14%)
   calculatedAt: string;
   disclaimer: string;
   demoNotice: string;
+  modelVersion: string;
+  metricType: 'noaa_heat_index' | 'heuristic_proxy' | 'validated_wbgt';
   weatherSnapshot: WeatherData;
+  heatIndexC?: number;
+  heatIndexF?: number;
+  calculationMethod?: string;
 }
 
 export interface CoolSpot {
@@ -61,6 +67,15 @@ export interface CoolSpot {
   description: string;
   address: string;
   amenities: string[];
+  isSampleData: boolean;
+}
+
+export interface AlternativeTimeWindow {
+  timeWindow: string;
+  expectedTempC?: number;
+  expectedRiskLevel?: RiskLevel;
+  reason: string;
+  forecastAvailable: boolean;
 }
 
 export interface Recommendation {
@@ -72,20 +87,8 @@ export interface Recommendation {
   restInterval: string;
   emergencySigns: string[];
   suggestedCoolSpots: CoolSpot[];
-  suggestedAlternativeTime?: {
-    timeWindow: string;
-    expectedTempC: number;
-    expectedRiskLevel: RiskLevel;
-    reason: string;
-  };
-}
-
-export interface AssessmentRecord {
-  id: string;
-  date: string;
-  input: HeatRiskInput;
-  result: HeatRiskResult;
-  isDemo: boolean;
+  suggestedAlternativeTime?: AlternativeTimeWindow;
+  disclaimer: string;
 }
 
 export interface UserSettings {

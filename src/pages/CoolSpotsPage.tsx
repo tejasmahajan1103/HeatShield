@@ -64,26 +64,26 @@ export const CoolSpotsPage: React.FC = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Page Header */}
-      <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white border border-stone-200/90 p-6 rounded-3xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-teal-400">CoolSpot Discovery</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#009F87]">CoolSpot Discovery</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80">
               Sample Location Store
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mt-1">Cooling Sanctuaries</h1>
-          <p className="text-slate-400 text-xs sm:text-sm mt-1">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#102C4C] mt-1">Cooling Sanctuaries</h1>
+          <p className="text-[#526985] text-xs sm:text-sm mt-1">
             Discover nearby shaded parks, public air-conditioned halls, drinking water fountains, and official cooling havens.
           </p>
         </div>
 
         {/* View mode toggle (Mobile/Desktop) */}
-        <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 self-start md:self-auto">
+        <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200/80 self-start md:self-auto">
           <button
             onClick={() => setActiveTab('split')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeTab === 'split' ? 'bg-teal-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'split' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
             }`}
           >
             <MapIcon className="w-3.5 h-3.5" />
@@ -92,7 +92,7 @@ export const CoolSpotsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('map')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeTab === 'map' ? 'bg-teal-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'map' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
             }`}
           >
             <MapIcon className="w-3.5 h-3.5" />
@@ -101,7 +101,7 @@ export const CoolSpotsPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('list')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeTab === 'list' ? 'bg-teal-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'list' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
             }`}
           >
             <ListFilter className="w-3.5 h-3.5" />
@@ -111,7 +111,7 @@ export const CoolSpotsPage: React.FC = () => {
       </div>
 
       {/* Filter Bar & Controls */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg space-y-4">
+      <div className="bg-white border border-stone-200/90 rounded-2xl p-4 shadow-sm space-y-4">
         {/* Category Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           {categories.map((cat) => {
@@ -123,8 +123,8 @@ export const CoolSpotsPage: React.FC = () => {
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition ${
                   isSelected
-                    ? 'bg-teal-500 text-slate-950 font-bold shadow-md shadow-teal-500/20'
-                    : 'bg-slate-950 text-slate-300 border border-slate-800 hover:bg-slate-800'
+                    ? 'bg-[#009F87] text-white font-bold shadow-md shadow-teal-500/20'
+                    : 'bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -135,20 +135,20 @@ export const CoolSpotsPage: React.FC = () => {
         </div>
 
         {/* Search & Checkboxes Row */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2 border-t border-slate-800">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2 border-t border-stone-200">
           <div className="md:col-span-5 relative">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+            <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, landmark, or amenities..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-100 focus:border-teal-500 focus:outline-none"
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-stone-50 border border-stone-200 text-xs text-[#102C4C] placeholder:text-stone-400 focus:border-[#009F87] focus:bg-white focus:outline-none"
             />
           </div>
 
           <div className="md:col-span-3 flex items-center gap-2">
-            <span className="text-xs text-slate-400 whitespace-nowrap">
+            <span className="text-xs text-[#526985] whitespace-nowrap">
               Radius: {maxDistanceKm} {settings?.preferredDistanceUnit === 'miles' ? 'mi' : 'km'}
             </span>
             <input
@@ -157,27 +157,27 @@ export const CoolSpotsPage: React.FC = () => {
               max="10"
               value={maxDistanceKm}
               onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
-              className="w-full accent-teal-500"
+              className="w-full accent-[#009F87]"
             />
           </div>
 
           <div className="md:col-span-4 flex items-center gap-4 text-xs">
-            <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-stone-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={verifiedShadeOnly}
                 onChange={(e) => setVerifiedShadeOnly(e.target.checked)}
-                className="rounded accent-teal-500"
+                className="rounded accent-[#009F87]"
               />
               <span>Shade Verified</span>
             </label>
 
-            <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+            <label className="flex items-center gap-2 text-stone-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={verifiedWaterOnly}
                 onChange={(e) => setVerifiedWaterOnly(e.target.checked)}
-                className="rounded accent-teal-500"
+                className="rounded accent-[#009F87]"
               />
               <span>Water Available</span>
             </label>
@@ -192,7 +192,7 @@ export const CoolSpotsPage: React.FC = () => {
             {/* Cards List Column */}
             <div className="lg:col-span-6 space-y-4 max-h-[650px] overflow-y-auto pr-1">
               {spots.length === 0 ? (
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-xs">
+                <div className="bg-white border border-stone-200 rounded-2xl p-8 text-center text-stone-500 text-xs">
                   No coolspots found matching your active filters. Try expanding search parameters.
                 </div>
               ) : (
@@ -243,8 +243,8 @@ export const CoolSpotsPage: React.FC = () => {
       </div>
 
       {/* Verified Data Disclaimer Notice */}
-      <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
-        <Info className="w-3.5 h-3.5 text-teal-400 shrink-0 mt-0.5" />
+      <div className="p-3.5 rounded-xl bg-teal-50/60 border border-teal-200/80 text-[11px] text-teal-900 flex items-start gap-2">
+        <Info className="w-3.5 h-3.5 text-teal-600 shrink-0 mt-0.5" />
         <span>
           Sample locations dataset. Verified timestamps represent simulated data audits. In production, location data syncs dynamically via AWS DynamoDB GeoSpatial query APIs.
         </span>

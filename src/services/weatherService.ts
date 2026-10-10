@@ -7,7 +7,7 @@ export interface WeatherService {
 
 export class MockWeatherService implements WeatherService {
   async getCurrentWeather(location: string): Promise<WeatherData> {
-    const locLower = location.trim().toLowerCase();
+    const locLower = (location || '').trim().toLowerCase();
     let tempC = 37.8;
     let humidity = 62;
     let wetBulb = 29.2;
@@ -38,9 +38,63 @@ export class MockWeatherService implements WeatherService {
       wetBulbTempC: Number(wetBulb.toFixed(1)),
       uvIndex: Number(uv.toFixed(1)),
       isDemo: true,
+      dataSourceStatus: 'demo_simulated',
       fetchedAt: new Date().toISOString()
     };
   }
 }
 
-export const weatherService = new MockWeatherService();
+export class HybridWeatherService implements WeatherService {
+  private mockService = new MockWeatherService();
+  private getApiUrl(): string {
+    const customBase = (import.meta.env?.VITE_API_BASE_URL as string) || (import.meta.env?.VITE_WEATHER_API_URL as string);
+    if (customBase) {
+      const cleanBase = customBase.replace(/\/+$/, '');
+      return cleanBase.endsWith('/api/weather') ? cleanBase : `${cleanBase}/api/weather`;
+    }
+    return 'http://127.0.0.1:8000/api/weather';
+  }
+
+  async getCurrentWeather(location: string): Promise<WeatherData> {
+    if (!location || !location.trim()) {
+      throw new Error('Invalid location: A location name is required.');
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const baseUrl = this.getApiUrl();
+      const queryUrl = `${baseUrl}?location=${encodeURIComponent(location.trim())}`;
+      
+      const response = await fetch(queryUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' }
+      });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          locationName: data.locationName || location,
+          temperatureC: Number(data.temperatureC),
+          humidityPercent: Number(data.humidityPercent),
+          uvIndex: Number(data.uvIndex || 0),
+          wetBulbTempC: Number(data.wetBulbTempC || 0),
+          windSpeedKmh: Number(data.windSpeedKmh || 0),
+          conditionText: data.conditionText || 'Clear',
+          isDemo: Boolean(data.isDemo),
+          dataSourceStatus: data.dataSourceStatus || 'live_sensor',
+          fetchedAt: data.fetchedAt || new Date().toISOString()
+        };
+      }
+    } catch {
+      // Backend API server not reachable or network failure -> Fall back to simulated mock data
+    }
+
+    return this.mockService.getCurrentWeather(location);
+  }
+}
+
+export const weatherService = new HybridWeatherService();
+

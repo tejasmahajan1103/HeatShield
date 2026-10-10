@@ -7,12 +7,10 @@ import {
   Activity,
   CheckCircle2,
   ArrowRight,
-  Bookmark,
   Sparkles
 } from 'lucide-react';
 import type { HeatRiskInput, HeatRiskResult, ActivityType, ShadeOption } from '../types';
 import { heatRiskService } from '../services/heatRiskService';
-import { historyService } from '../services/historyService';
 import { HeatRiskCard } from '../components/HeatRiskCard';
 
 export const HeatRiskPage: React.FC = () => {
@@ -74,15 +72,6 @@ export const HeatRiskPage: React.FC = () => {
 
       const res = await heatRiskService.calculateRisk(input);
       setResult(res);
-
-      // Auto save record to history
-      await historyService.saveAssessment({
-        id: `rec-${Date.now()}`,
-        date: `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-        input,
-        result: res,
-        isDemo: true
-      });
       setSavedSuccess(true);
     } catch (err) {
       console.error('Heat risk calculation failed:', err);
@@ -94,51 +83,54 @@ export const HeatRiskPage: React.FC = () => {
   return (
     <div className="space-y-8 pb-12">
       {/* Header */}
-      <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-3xl">
+      <div className="bg-white border border-stone-200/80 p-6 rounded-3xl shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-orange-400">Risk Assessment Engine</span>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+          <span className="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-50 border border-orange-200 px-3 py-0.5 rounded-full">Risk Assessment Engine</span>
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
             Deterministic Heuristic
           </span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 mt-1">Heat-Risk Assessment</h1>
-        <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-3xl">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">Heat-Risk Assessment</h1>
+        <p className="text-slate-600 text-xs sm:text-sm mt-1 max-w-3xl leading-relaxed">
           Enter your planned activity details below. HeatShield calculates a preliminary risk score based on estimated wet-bulb thermal load, metabolic exertion, and solar exposure.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Form Column */}
-        <div className="lg:col-span-6 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-6">
-          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2 pb-4 border-b border-slate-800">
-            <Activity className="w-5 h-5 text-orange-400" />
+        <div className="lg:col-span-6 bg-white border border-stone-200/90 rounded-3xl p-6 shadow-sm space-y-6">
+          <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2 pb-4 border-b border-stone-100">
+            <Activity className="w-5 h-5 text-orange-600" />
             <span>Activity & Exposure Parameters</span>
           </h2>
 
           <form onSubmit={handleCalculate} className="space-y-5">
             {/* Location Input */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Location Name
               </label>
               <div className="relative">
-                <MapPin className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input
                   type="text"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => {
+                    setLocation(e.target.value);
+                    if (errors.location) setErrors(prev => ({ ...prev, location: '' }));
+                  }}
                   placeholder="e.g. Cubbon Park or Central Metro Plaza"
-                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border ${
-                    errors.location ? 'border-rose-500' : 'border-slate-800 focus:border-orange-500'
-                  } text-slate-100 text-sm focus:outline-none transition`}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 border ${
+                    errors.location ? 'border-rose-500' : 'border-stone-300 focus:border-orange-500 focus:bg-white'
+                  } text-slate-900 text-sm focus:outline-none transition font-medium`}
                 />
               </div>
-              {errors.location && <p className="text-xs text-rose-400 mt-1">{errors.location}</p>}
+              {errors.location && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.location}</p>}
             </div>
 
             {/* Activity Options */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Select Activity
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -147,14 +139,14 @@ export const HeatRiskPage: React.FC = () => {
                     key={act.value}
                     type="button"
                     onClick={() => setActivity(act.value)}
-                    className={`p-3 rounded-xl border text-left transition ${
+                    className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
                       activity === act.value
-                        ? 'bg-orange-500/15 border-orange-500 text-orange-300 font-bold'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-300'
+                        ? 'bg-orange-50 border-orange-500 text-orange-950 font-bold shadow-xs'
+                        : 'bg-stone-50 border-stone-200 hover:border-stone-300 text-slate-700'
                     }`}
                   >
-                    <div className="text-xs font-semibold">{act.label}</div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">{act.desc}</div>
+                    <div className="text-xs font-bold text-slate-900">{act.label}</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{act.desc}</div>
                   </button>
                 ))}
               </div>
@@ -163,25 +155,28 @@ export const HeatRiskPage: React.FC = () => {
             {/* Time & Duration Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Planned Start Time
                 </label>
                 <div className="relative">
-                  <Clock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                  <Clock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
                     type="time"
                     value={plannedTime}
-                    onChange={(e) => setPlannedTime(e.target.value)}
-                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border ${
-                      errors.plannedTime ? 'border-rose-500' : 'border-slate-800 focus:border-orange-500'
-                    } text-slate-100 text-sm focus:outline-none transition`}
+                    onChange={(e) => {
+                      setPlannedTime(e.target.value);
+                      if (errors.plannedTime) setErrors(prev => ({ ...prev, plannedTime: '' }));
+                    }}
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-2xl bg-stone-50 border ${
+                      errors.plannedTime ? 'border-rose-500' : 'border-stone-300 focus:border-orange-500 focus:bg-white'
+                    } text-slate-900 text-sm focus:outline-none transition font-medium`}
                   />
                 </div>
-                {errors.plannedTime && <p className="text-xs text-rose-400 mt-1">{errors.plannedTime}</p>}
+                {errors.plannedTime && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.plannedTime}</p>}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Duration (Minutes)
                 </label>
                 <input
@@ -189,18 +184,21 @@ export const HeatRiskPage: React.FC = () => {
                   min="5"
                   max="600"
                   value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                  className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
-                    errors.durationMinutes ? 'border-rose-500' : 'border-slate-800 focus:border-orange-500'
-                  } text-slate-100 text-sm focus:outline-none transition`}
+                  onChange={(e) => {
+                    setDurationMinutes(Number(e.target.value));
+                    if (errors.durationMinutes) setErrors(prev => ({ ...prev, durationMinutes: '' }));
+                  }}
+                  className={`w-full px-4 py-2.5 rounded-2xl bg-stone-50 border ${
+                    errors.durationMinutes ? 'border-rose-500' : 'border-stone-300 focus:border-orange-500 focus:bg-white'
+                  } text-slate-900 text-sm focus:outline-none transition font-medium`}
                 />
-                {errors.durationMinutes && <p className="text-xs text-rose-400 mt-1">{errors.durationMinutes}</p>}
+                {errors.durationMinutes && <p className="text-xs text-rose-500 font-semibold mt-1">{errors.durationMinutes}</p>}
               </div>
             </div>
 
             {/* Shade Availability Options */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Shade Availability
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -209,13 +207,13 @@ export const HeatRiskPage: React.FC = () => {
                     key={sh.value}
                     type="button"
                     onClick={() => setShadeAvailability(sh.value)}
-                    className={`p-3 rounded-xl border text-center transition ${
+                    className={`p-3 rounded-2xl border text-center transition cursor-pointer ${
                       shadeAvailability === sh.value
-                        ? 'bg-amber-500/15 border-amber-500 text-amber-300 font-bold'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700 text-slate-400'
+                        ? 'bg-amber-50 border-amber-500 text-amber-950 font-bold shadow-xs'
+                        : 'bg-stone-50 border-stone-200 hover:border-stone-300 text-slate-700'
                     }`}
                   >
-                    <div className="text-xs font-semibold">{sh.label}</div>
+                    <div className="text-xs font-bold text-slate-900">{sh.label}</div>
                   </button>
                 ))}
               </div>
@@ -225,7 +223,7 @@ export const HeatRiskPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 font-extrabold text-sm shadow-xl shadow-orange-500/20 flex items-center justify-center gap-2 transition disabled:opacity-50"
+              className="w-full py-4 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <span>Calculating Preliminary Stress...</span>
@@ -244,25 +242,25 @@ export const HeatRiskPage: React.FC = () => {
           {result ? (
             <div className="space-y-6">
               {savedSuccess && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Assessment record saved to local demo history.</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-semibold">Assessment calculation complete.</span>
                   </div>
-                  <Bookmark className="w-4 h-4 text-emerald-400" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 </div>
               )}
 
               <HeatRiskCard result={result} />
 
-              <div className="p-5 bg-slate-900/80 border border-slate-800 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="p-6 bg-white border border-stone-200/90 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
                 <div>
-                  <h4 className="font-bold text-slate-100 text-sm">Personalized Action Plan</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Hydration schedule & shade break intervals based on this score.</p>
+                  <h4 className="font-extrabold text-slate-900 text-base">Personalized Action Plan</h4>
+                  <p className="text-xs text-slate-600 mt-0.5">Hydration schedule & shade break intervals based on this score.</p>
                 </div>
                 <button
-                  onClick={() => navigate('/app/recommendations')}
-                  className="px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition shrink-0"
+                  onClick={() => navigate('/app/recommendations', { state: { input: { location, activity, plannedTime, durationMinutes, shadeAvailability }, result } })}
+                  className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-2 transition shrink-0 cursor-pointer shadow-sm"
                 >
                   <span>View Recommendations</span>
                   <ArrowRight className="w-4 h-4" />
@@ -270,12 +268,12 @@ export const HeatRiskPage: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-slate-900/60 border border-slate-800 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[350px]">
-              <div className="w-14 h-14 rounded-2xl bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center mb-4">
+            <div className="bg-white border border-stone-200 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center h-full min-h-[350px]">
+              <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 border border-orange-200 flex items-center justify-center mb-4">
                 <Sparkles className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-bold text-slate-200">No Assessment Calculated Yet</h3>
-              <p className="text-xs text-slate-400 max-w-sm mt-2">
+              <h3 className="text-lg font-bold text-slate-900">No Assessment Calculated Yet</h3>
+              <p className="text-xs text-slate-500 max-w-sm mt-2 leading-relaxed">
                 Fill out the activity form on the left and click "Calculate Preliminary Heat Risk" to see your customized thermal stress evaluation.
               </p>
             </div>

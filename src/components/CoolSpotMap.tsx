@@ -33,7 +33,7 @@ export const CoolSpotMap: React.FC<CoolSpotMapProps> = ({
     : center;
 
   return (
-    <div className="w-full h-full min-h-[380px] rounded-2xl overflow-hidden border border-slate-800 shadow-xl relative">
+    <div className="w-full h-full min-h-[380px] rounded-2xl overflow-hidden border border-stone-200/90 shadow-md relative">
       <MapContainer
         center={mapCenter}
         zoom={zoom}
@@ -59,22 +59,22 @@ export const CoolSpotMap: React.FC<CoolSpotMapProps> = ({
               }}
             >
               <Popup className="coolspot-leaflet-popup">
-                <div className="p-1 space-y-2 text-slate-100 max-w-[220px]">
+                <div className="p-1 space-y-2 text-stone-900 max-w-[220px]">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] uppercase font-bold text-teal-400 bg-teal-500/20 px-2 py-0.5 rounded">
+                    <span className="text-[10px] uppercase font-bold text-teal-800 bg-teal-50 border border-teal-200/80 px-2 py-0.5 rounded">
                       {spot.categoryLabel}
                     </span>
-                    <span className="text-xs font-mono text-slate-300 font-bold">
+                    <span className="text-xs font-mono text-stone-600 font-bold">
                       {formatDistance(spot.distanceKm)}
                     </span>
                   </div>
 
-                  <h5 className="font-bold text-sm text-slate-100">{spot.name}</h5>
-                  <p className="text-xs text-slate-300 leading-snug">{spot.description}</p>
+                  <h5 className="font-bold text-sm text-[#102C4C]">{spot.name}</h5>
+                  <p className="text-xs text-[#526985] leading-snug">{spot.description}</p>
 
-                  <div className="pt-2 border-t border-slate-700 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-teal-400" />
+                  <div className="pt-2 border-t border-stone-200 flex items-center justify-between">
+                    <span className="text-[10px] text-teal-700 flex items-center gap-1 font-medium">
+                      <ShieldCheck className="w-3 h-3 text-teal-600" />
                       Verified
                     </span>
 
@@ -83,7 +83,7 @@ export const CoolSpotMap: React.FC<CoolSpotMapProps> = ({
                         e.stopPropagation();
                         window.open(`https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=;${spot.latitude}%2C${spot.longitude}`, '_blank');
                       }}
-                      className="px-2.5 py-1 rounded bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-semibold flex items-center gap-1"
+                      className="px-2.5 py-1 rounded bg-[#009F87] hover:bg-[#008974] text-white text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors"
                     >
                       <Navigation className="w-3 h-3" />
                       Go

@@ -9,5 +9,6 @@ export const SAMPLE_WEATHER_DATA: WeatherData = {
   windSpeedKmh: 8.5,
   conditionText: 'Hot & Humid with High Thermal Stress',
   isDemo: true,
+  dataSourceStatus: 'demo_simulated',
   fetchedAt: new Date().toISOString()
 };

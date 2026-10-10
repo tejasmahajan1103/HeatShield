@@ -1,0 +1,1 @@
+{"statusCode": 401, "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization"}, "body": "{\"error\": \"Invalid OpenWeather API Key (401 Unauthorized)\", \"errorCode\": \"INVALID_API_KEY\"}"}

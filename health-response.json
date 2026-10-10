@@ -1,0 +1,1 @@
+{"statusCode": 200, "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization"}, "body": "{\"status\": \"healthy\", \"service\": \"HeatShield Backend API\", \"live_weather_configured\": true, \"provider\": \"OpenWeather API v2.5\"}"}

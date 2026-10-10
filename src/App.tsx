@@ -6,7 +6,6 @@ import { DashboardPage } from './pages/DashboardPage';
 import { HeatRiskPage } from './pages/HeatRiskPage';
 import { CoolSpotsPage } from './pages/CoolSpotsPage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
-import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 export const App: React.FC = () => {
@@ -20,9 +19,8 @@ export const App: React.FC = () => {
         <Route path="/app" element={<MainAppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="heat-risk" element={<HeatRiskPage />} />
-          <Route path="coolspots" element={<CoolSpotsPage />} />
           <Route path="recommendations" element={<RecommendationsPage />} />
-          <Route path="history" element={<HistoryPage />} />
+          <Route path="coolspots" element={<CoolSpotsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

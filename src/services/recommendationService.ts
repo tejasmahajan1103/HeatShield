@@ -1,12 +1,20 @@
-import type { HeatRiskResult, Recommendation, HeatRiskInput } from '../types';
+import type { HeatRiskResult, Recommendation, HeatRiskInput, AlternativeTimeWindow } from '../types';
 import { coolSpotService } from './coolSpotService';
 
 export interface RecommendationService {
   generateRecommendations(input: HeatRiskInput, result: HeatRiskResult): Promise<Recommendation>;
 }
 
+/**
+ * Recommendation Service Protocol
+ * ===============================
+ * Generates evidence-based public health heat safety suggestions (CDC / NIOSH heat stress guidelines)
+ * based on the deterministic risk engine output.
+ *
+ * NOTE: Does NOT provide medical diagnostic advice or fabricate unsupported multi-hour weather forecasts.
+ */
 export class StructuredRecommendationService implements RecommendationService {
-  async generateRecommendations(_input: HeatRiskInput, result: HeatRiskResult): Promise<Recommendation> {
+  async generateRecommendations(input: HeatRiskInput, result: HeatRiskResult): Promise<Recommendation> {
     const spots = await coolSpotService.getCoolSpots({ maxDistanceKm: 3 });
     const topSpots = spots.slice(0, 3);
 
@@ -16,49 +24,49 @@ export class StructuredRecommendationService implements RecommendationService {
     let restInterval = '';
 
     if (result.score >= 80) {
-      primaryAdvice.push('Postpone non-essential heavy exertion until ambient temperature drops.');
-      primaryAdvice.push('Seek immediate shade or air-conditioned shelter every 15-20 minutes.');
-      primaryAdvice.push('Consume electrolyte solutions alongside clean water to prevent hyponatremia.');
+      primaryAdvice.push('Consider rescheduling or minimizing strenuous physical exertion during extreme thermal stress.');
+      primaryAdvice.push('Take frequent rest breaks in active shade or air-conditioned environments.');
+      primaryAdvice.push('Drink fluids regularly and balance with electrolyte intake during heavy sweating.');
 
-      hydrationGuidance = 'Drink 750ml to 1000ml of cold fluids per hour of exposure in small, frequent sips.';
-      activityModification = 'Reduce activity pace by 50% or shift to early morning (06:00 AM - 08:00 AM).';
-      restInterval = 'Mandatory 15-minute rest in active shade for every 30 minutes of physical activity.';
+      hydrationGuidance = 'Maintain regular fluid intake in small, frequent amounts. Do not wait until feeling thirsty.';
+      activityModification = `For ${input.activity.replace('_', ' ')}, reduce physical intensity and avoid peak solar radiation hours.`;
+      restInterval = 'Schedule a shaded rest pause every 20-30 minutes of exertion.';
     } else if (result.score >= 60) {
-      primaryAdvice.push('Limit continuous outdoor activity to under 45 minutes.');
-      primaryAdvice.push('Wear light-colored, loose-fitting, breathable moisture-wicking apparel.');
-      primaryAdvice.push('Keep a spray water bottle or cool damp towel for neck skin cooling.');
+      primaryAdvice.push('Pace continuous outdoor exertion and monitor body signals.');
+      primaryAdvice.push('Wear lightweight, breathable, light-colored clothing and UV sun protection.');
+      primaryAdvice.push('Keep cool water accessible and use damp towels for skin cooling.');
 
-      hydrationGuidance = 'Drink 500ml to 750ml of water per hour. Avoid sugary or high-caffeine beverages.';
-      activityModification = 'Pace yourself moderately; avoid sprint intervals or peak load efforts.';
-      restInterval = '10-minute shade pause every 40 minutes of outdoor exertion.';
+      hydrationGuidance = 'Drink water frequently throughout exposure. Avoid alcohol or high-caffeine beverages.';
+      activityModification = 'Maintain a moderate pace and avoid max-effort intervals during peak heat.';
+      restInterval = 'Take a 10-minute shade break every 30-40 minutes.';
     } else if (result.score >= 35) {
-      primaryAdvice.push('Stay aware of environmental thermal accumulation over time.');
-      primaryAdvice.push('Apply SPF 30+ broad-spectrum sunscreen and wear UV-rated sunglasses.');
+      primaryAdvice.push('Stay mindful of cumulative heat exposure over time.');
+      primaryAdvice.push('Apply SPF 30+ broad-spectrum sunscreen and wear protective eyewear.');
 
-      hydrationGuidance = 'Maintain regular water intake (350ml - 500ml per hour).';
-      activityModification = 'Standard activity pace permissible; monitor skin flushing and heart rate.';
-      restInterval = 'Brief 5-minute break in shade hourly.';
+      hydrationGuidance = 'Drink water at regular intervals to maintain healthy hydration.';
+      activityModification = 'Standard activity pace supported; monitor skin flushing and body comfort.';
+      restInterval = 'Take routine brief rest breaks in shade.';
     } else {
-      primaryAdvice.push('Conditions are currently within low risk limits for routine activities.');
-      primaryAdvice.push('Maintain baseline hydration and sun protection.');
+      primaryAdvice.push('Environmental heat stress is currently low for routine activities.');
+      primaryAdvice.push('Maintain general hydration and sun protection.');
 
-      hydrationGuidance = 'Drink water as needed to satisfy thirst.';
-      activityModification = 'Normal activity levels supported.';
-      restInterval = 'Standard routine rest breaks.';
+      hydrationGuidance = 'Drink fluids regularly to satisfy thirst.';
+      activityModification = 'Normal activity pace supported.';
+      restInterval = 'Standard routine breaks.';
     }
 
     const emergencySigns = [
-      'Dizziness, disorientation, or lightheadedness',
-      'Heavy sweating transitioning to dry, hot skin',
-      'Rapid, shallow pulse or severe throbbing headache',
-      'Muscle cramping or nausea'
+      'Dizziness, confusion, or lightheadedness',
+      'Profuse sweating transitioning to hot, dry skin',
+      'Rapid pulse or severe throbbing headache',
+      'Nausea, muscle cramps, or extreme fatigue'
     ];
 
-    const alternativeTime = {
-      timeWindow: '06:30 AM - 08:30 AM (Tomorrow)',
-      expectedTempC: 26.5,
-      expectedRiskLevel: 'Low' as const,
-      reason: 'Morning solar angle provides minimal direct thermal radiation and 11.3°C cooler ambient conditions.'
+    // Alternative Time Window Guidance (Without fabricating unverified future weather telemetry)
+    const suggestedAlternativeTime: AlternativeTimeWindow = {
+      timeWindow: 'Early Morning (06:00 AM - 08:00 AM) or Post-Sunset',
+      reason: 'Multi-hour weather forecast telemetry is not currently connected. Generally, early morning hours feature lower solar radiation and cooler baseline ambient conditions.',
+      forecastAvailable: false
     };
 
     return {
@@ -70,7 +78,8 @@ export class StructuredRecommendationService implements RecommendationService {
       restInterval,
       emergencySigns,
       suggestedCoolSpots: topSpots,
-      suggestedAlternativeTime: result.score >= 35 ? alternativeTime : undefined
+      suggestedAlternativeTime,
+      disclaimer: 'General public health guidance based on preliminary risk heuristics. Not medical advice. Seek medical care if experiencing heat illness symptoms.'
     };
   }
 }

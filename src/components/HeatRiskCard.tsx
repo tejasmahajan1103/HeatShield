@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ShieldAlert, ArrowRight, HelpCircle } from 'lucide-react';
+import { ShieldAlert, ArrowRight, HelpCircle } from 'lucide-react';
 import type { HeatRiskResult } from '../types';
 import { getRiskBadgeColor } from '../utils/formatters';
 import { Link } from 'react-router-dom';
@@ -13,38 +13,38 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
   const badgeStyle = getRiskBadgeColor(result.level);
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl relative">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+    <div className="bg-white border border-stone-200/90 rounded-3xl p-6 shadow-sm relative">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-stone-100">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Preliminary Assessment</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
-              Demo Calculation
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Preliminary Assessment</span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-stone-100 text-slate-700 border border-stone-200 font-mono">
+              {result.modelVersion || 'v1.0-heuristic'}
             </span>
           </div>
-          <h3 className="text-xl font-bold text-slate-100 mt-1">Heat-Exposure Risk</h3>
+          <h3 className="text-xl font-extrabold text-slate-900 mt-1">Heat-Exposure Risk</h3>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className={`px-3 py-1.5 rounded-xl border text-sm font-bold flex items-center gap-2 ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}>
+          <div className={`px-3 py-1.5 rounded-full border text-xs font-bold flex items-center gap-2 ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}>
             <ShieldAlert className="w-4 h-4" />
             <span>{result.level} Risk</span>
           </div>
-          <div className="px-3.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-mono font-extrabold text-lg">
-            {result.score}<span className="text-xs text-slate-400 font-sans font-normal">/100</span>
+          <div className="px-3.5 py-1.5 rounded-2xl bg-stone-100 border border-stone-200 text-slate-900 font-mono font-black text-lg">
+            {result.score}<span className="text-xs text-slate-500 font-sans font-normal">/100</span>
           </div>
         </div>
       </div>
 
       {/* Progress dial bar */}
       <div className="py-4">
-        <div className="flex justify-between text-xs font-semibold mb-1.5">
-          <span className="text-emerald-400">Low (0-35)</span>
-          <span className="text-amber-400">Moderate (36-65)</span>
-          <span className="text-orange-400">High (66-85)</span>
-          <span className="text-rose-400">Extreme (86-100)</span>
+        <div className="flex justify-between text-xs font-bold mb-1.5">
+          <span className="text-emerald-700">Low (0-35)</span>
+          <span className="text-amber-700">Moderate (36-65)</span>
+          <span className="text-orange-700">High (66-85)</span>
+          <span className="text-rose-700">Extreme (86-100)</span>
         </div>
-        <div className="w-full h-3 rounded-full bg-slate-800 p-0.5 overflow-hidden flex">
+        <div className="w-full h-3.5 rounded-full bg-stone-100 p-0.5 overflow-hidden flex border border-stone-200">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
@@ -55,41 +55,41 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
         </div>
       </div>
 
-      <p className="text-sm text-slate-300 leading-relaxed py-2">
+      <p className="text-sm text-slate-700 leading-relaxed py-2 font-medium">
         {result.summary}
       </p>
 
       {/* Factors list */}
-      <div className="mt-4 pt-4 border-t border-slate-800/80">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Key Contributing Factors</h4>
+      <div className="mt-4 pt-4 border-t border-stone-100">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Key Contributing Factors</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {result.contributingFactors.map((item, idx) => (
-            <div key={idx} className="p-3 rounded-xl bg-slate-800/40 border border-slate-800 text-xs">
-              <div className="flex items-center justify-between font-medium text-slate-200">
+            <div key={idx} className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200/80 text-xs">
+              <div className="flex items-center justify-between font-bold text-slate-900">
                 <span>{item.factor}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                  item.impact === 'High' ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700/60 text-slate-300'
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                  item.impact === 'High' ? 'bg-orange-100 text-orange-800 border border-orange-200' : 'bg-stone-200/70 text-slate-700'
                 }`}>
                   {item.impact} Impact
                 </span>
               </div>
-              <p className="text-slate-400 mt-1 text-[11px]">{item.description}</p>
+              <p className="text-slate-600 mt-1 text-[11px] leading-relaxed">{item.description}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Uncertainty and Disclaimer Footer */}
-      <div className="mt-5 pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-400">
+      <div className="mt-5 pt-4 border-t border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-500">
         <div className="flex items-center gap-2">
-          <HelpCircle className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>Estimated calculation uncertainty: <strong className="text-slate-300">{result.uncertaintyScore}%</strong></span>
+          <HelpCircle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>Estimated calculation uncertainty: <strong className="text-slate-900">{result.uncertaintyScore}%</strong></span>
         </div>
 
         {showDetailsLink && (
           <Link
             to="/app/recommendations"
-            className="inline-flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-semibold transition"
+            className="inline-flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-bold transition"
           >
             <span>View Safety Recommendations</span>
             <ArrowRight className="w-4 h-4" />
@@ -98,9 +98,9 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
       </div>
 
       {/* Mandatory Non-Medical Disclaimer */}
-      <div className="mt-3 p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
-        <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-        <span>{result.disclaimer} Always listen to bodily signals and consult local emergency guidelines during heatwaves.</span>
+      <div className="mt-3 p-3 rounded-2xl bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed">
+        <strong className="text-amber-950 font-bold">Disclaimer: </strong>
+        {result.disclaimer}
       </div>
     </div>
   );
