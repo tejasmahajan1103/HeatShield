@@ -244,8 +244,11 @@ export class HybridCoolSpotService implements CoolSpotService {
       const fullUrl = cleanBase.endsWith('/api/coolspots') ? cleanBase : `${cleanBase}/api/coolspots`;
       return [fullUrl];
     }
-    // Try relative path first, then explicit local Python server on port 8000
-    return ['/api/coolspots', 'http://127.0.0.1:8000/api/coolspots'];
+    const defaultProdEndpoint = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots';
+    if (import.meta.env?.DEV) {
+      return [defaultProdEndpoint, 'http://127.0.0.1:8000/api/coolspots'];
+    }
+    return [defaultProdEndpoint];
   }
 
   private async fetchFromApiCandidate(baseUrl: string, lat: number, lon: number, radiusKm: number, signal?: AbortSignal): Promise<ApiFetchResult> {

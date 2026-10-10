@@ -91,7 +91,11 @@ export class HybridWeatherService implements WeatherService {
       }
       return cleanBase.endsWith('/api') ? cleanBase : `${cleanBase}/api`;
     }
-    return 'http://127.0.0.1:8000/api';
+    const defaultProdBase = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api';
+    if (import.meta.env?.DEV) {
+      return 'http://127.0.0.1:8000/api';
+    }
+    return defaultProdBase;
   }
 
   async getCurrentWeatherByCoords(lat: number, lon: number): Promise<WeatherData> {
