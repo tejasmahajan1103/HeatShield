@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { HeatRiskInput, HeatRiskResult, ActivityType, ShadeOption, GeocodedLocation, RouteInfo } from '../types';
 import { heatRiskService } from '../services/heatRiskService';
+import { riskHistoryService } from '../services/riskHistoryService';
 import { geocodingService } from '../services/geocodingService';
 import { routingService } from '../services/routingService';
 import { HeatRiskCard } from '../components/HeatRiskCard';
@@ -212,8 +213,13 @@ export const HeatRiskPage: React.FC = () => {
       if (activeRoute) {
         res.routeInfo = activeRoute;
       }
-      setResult(res);
+                  setResult(res);
       setSavedSuccess(true);
+
+      // Save history independently; failure must not affect the risk result.
+      void riskHistoryService.saveAssessment(input, res).catch((historyError) => {
+        console.error('Risk history save failed:', historyError);
+      });
     } catch (err) {
       console.error('Heat risk calculation failed:', err);
     } finally {

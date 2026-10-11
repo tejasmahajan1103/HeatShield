@@ -8,6 +8,7 @@ import { CoolSpotsPage } from './pages/CoolSpotsPage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { UserLocationProvider } from './context/UserLocationContext';
+import { RiskHistoryPage } from './pages/RiskHistoryPage';
 
 export const App: React.FC = () => {
   return (
@@ -23,6 +24,7 @@ export const App: React.FC = () => {
             <Route path="heat-risk" element={<HeatRiskPage />} />
             <Route path="recommendations" element={<RecommendationsPage />} />
             <Route path="coolspots" element={<CoolSpotsPage />} />
+            <Route path="risk-history" element={<RiskHistoryPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

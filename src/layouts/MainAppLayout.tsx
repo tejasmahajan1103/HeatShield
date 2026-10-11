@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   Flame,
   Settings,
+  History,
   Menu,
   X,
   Cloud,
@@ -25,6 +26,7 @@ export const MainAppLayout: React.FC = () => {
     { path: '/app/heat-risk', label: 'Heat Risk', icon: ThermometerSun },
     { path: '/app/recommendations', label: 'Recommendations', icon: HeartPulse },
     { path: '/app/coolspots', label: 'CoolSpots', icon: MapPin },
+    { path: '/app/risk-history', label: 'Risk History', icon: History },
     { path: '/app/settings', label: 'Settings', icon: Settings },
   ];
 

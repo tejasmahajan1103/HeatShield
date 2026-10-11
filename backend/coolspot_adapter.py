@@ -37,7 +37,7 @@ class CoolSpotAdapter:
     def fetch_nearby_coolspots(self, lat: float, lon: float, radius_km: float = 5.0, max_results: int = 30) -> List[Dict[str, Any]]:
         if not is_valid_coordinate(lat, lon):
             raise CoolSpotError("Invalid coordinates: Latitude must be between -90 and 90, Longitude between -180 and 180", status_code=400, error_code="INVALID_INPUT")
-        
+
         radius_km = max(0.1, min(50.0, float(radius_km)))
         radius_m = int(radius_km * 1000)
 
@@ -78,11 +78,34 @@ out center {max_results * 2};"""
                     parsed = json.loads(raw_text)
                     elements = parsed.get("elements", [])
                     return self._parse_elements(elements, lat, lon, max_results)
+
             except urllib.error.HTTPError as e:
                 err_code = "RATE_LIMITED" if e.code == 429 else "PROVIDER_HTTP_ERROR"
-                last_err = CoolSpotError(f"Overpass API HTTP Error {e.code}: {e.reason}", status_code=e.code, error_code=err_code)
+                last_err = CoolSpotError(
+                    f"Overpass API HTTP Error {e.code}: {e.reason}",
+                    status_code=e.code,
+                    error_code=err_code,
+                )
                 if e.code in [429, 502, 503, 504]:
                     continue
+                break
+            except (urllib.error.URLError, OSError, TimeoutError) as e:
+                reason = getattr(e, "reason", e)
+                last_err = CoolSpotError(
+                    f"Network error connecting to Overpass provider: {reason}",
+                    status_code=504,
+                    error_code="NETWORK_TIMEOUT",
+                )
+                # Try the next configured Overpass endpoint.
+                continue
+            except json.JSONDecodeError:
+                last_err = CoolSpotError(
+                    "Received malformed JSON response from geographic provider",
+                    status_code=502,
+                    error_code="MALFORMED_RESPONSE",
+                )
+                continue
+
             except urllib.error.URLError as e:
                 last_err = CoolSpotError(f"Network error connecting to Overpass provider: {e.reason}", status_code=504, error_code="NETWORK_TIMEOUT")
             except TimeoutError:

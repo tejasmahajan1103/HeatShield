@@ -12,6 +12,7 @@ REQUIRED_FILES = [
     "heat_risk_engine.py",
     "coolspot_adapter.py",
     "coolspot_service.py",
+    "risk_history_service.py",
 ]
 
 def build_package():

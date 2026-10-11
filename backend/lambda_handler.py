@@ -2,8 +2,14 @@ import json
 from typing import Dict, Any
 from models import HeatRiskInputModel
 from weather_service import WeatherService
+from decimal import Decimal
 from heat_risk_engine import calculate_heat_risk
 from openweather_adapter import OpenWeatherError
+from risk_history_service import (
+    save_assessment,
+    get_assessments,
+    RiskHistoryError,
+)
 
 import os
 
@@ -26,7 +32,12 @@ def build_response(status_code: int, body: Dict[str, Any], headers: Dict[str, st
     return {
         "statusCode": status_code,
         "headers": default_headers,
-        "body": json.dumps(body),
+        "body": json.dumps(
+    body,
+    default=lambda value: (
+        float(value) if isinstance(value, Decimal) else str(value)
+    ),
+),
     }
 
 def route_api_request(method: str, path: str, query_params: Dict[str, str], body_json: Dict[str, Any]) -> Dict[str, Any]:
@@ -126,7 +137,7 @@ def route_api_request(method: str, path: str, query_params: Dict[str, str], body
 
 
 
-    
+
     if path in ["/api/coolspots", "/coolspots"] and method == "GET":
         lat_str = query_params.get("lat") or query_params.get("latitude")
         lon_str = query_params.get("lon") or query_params.get("longitude")
@@ -235,6 +246,84 @@ def route_api_request(method: str, path: str, query_params: Dict[str, str], body
         except Exception as e:
             return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
 
+
+    if path in ["/api/risk-history", "/risk-history"]:
+        if method == "POST":
+            try:
+                saved = save_assessment(body_json)
+                return build_response(201, saved)
+            except ValueError as e:
+                return build_response(
+                    400,
+                    {"error": str(e), "errorCode": "INVALID_INPUT"},
+                )
+            except Exception:
+                return build_response(
+                    503,
+                    {
+                        "error": "Risk history storage is temporarily unavailable.",
+                        "errorCode": "RISK_HISTORY_UNAVAILABLE",
+                    },
+                )
+
+
+        if method == "GET":
+            try:
+                session_id = query_params.get("sessionId")
+
+                if not session_id:
+                    return build_response(
+                        400,
+                        {
+                            "error": "sessionId query parameter is required.",
+                            "errorCode": "INVALID_INPUT",
+                        },
+                    )
+
+                records = get_assessments(session_id, limit=20)
+                return build_response(
+                    200,
+                    {"items": records, "count": len(records)},
+                )
+            except ValueError as e:
+                return build_response(
+                    400,
+                    {"error": str(e), "errorCode": "INVALID_INPUT"},
+                )
+            except Exception:
+                return build_response(
+                    503,
+                    {
+                        "error": "Risk history storage is temporarily unavailable.",
+                        "errorCode": "RISK_HISTORY_UNAVAILABLE",
+                    },
+                )
+
+                return build_response(
+                    200,
+                    {"items": records, "count": len(records)},
+                )
+            except ValueError as e:
+                return build_response(
+                    400,
+                    {"error": str(e), "errorCode": "INVALID_INPUT"},
+                )
+            except Exception:
+                return build_response(
+                    503,
+                    {
+                        "error": "Risk history storage is temporarily unavailable.",
+                        "errorCode": "RISK_HISTORY_UNAVAILABLE",
+                    },
+                )
+
+        return build_response(
+            405,
+            {"error": "Method not allowed", "errorCode": "METHOD_NOT_ALLOWED"},
+            {"Allow": "GET, POST, OPTIONS"},
+        )
+
+
     return build_response(404, {"error": f"Endpoint not found: {method} {path}", "errorCode": "NOT_FOUND"})
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -242,7 +331,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     http_method = event.get("httpMethod", "GET")
     path = event.get("path", "/api/health")
     query_params = event.get("queryStringParameters") or {}
-    
+
     body_json = {}
     raw_body = event.get("body")
     if raw_body:

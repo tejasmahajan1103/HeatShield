@@ -263,14 +263,14 @@ def calculate_heat_risk(
 
     contributing_factors = [
         {
-            "factor": f"Environmental Heat Index ({hi_c}°C / {hi_f}°F)",
+            "factor": f"Environmental Heat Index ({hi_c}Â°C / {hi_f}Â°F)",
             "impact": (
                 "High"
                 if hi_f >= 90
                 else ("Medium" if hi_f >= 80 else "Low")
             ),
             "description": (
-                f"Calculated from ambient temperature {temp_c}°C "
+                f"Calculated from ambient temperature {temp_c}Â°C "
                 f"and humidity {humidity}% using the NOAA/NWS method."
             ),
         },
@@ -332,7 +332,7 @@ def calculate_heat_risk(
         uncertaintyScore=14,
         calculatedAt=datetime.now().strftime("%I:%M %p"),
         disclaimer=(
-            "Calculated using the NOAA/NWS heat-index equation. "
+            "Calculated using the NOAA National Weather Service (NOAA/NWS) heat-index equation. "
             "HeatShield risk levels and the 0-100 score are presentation "
             "metrics, not a medical diagnosis or probability of illness."
         ),
@@ -430,8 +430,8 @@ def calculate_overnight_summary(
 
     summary_text = (
         f"Estimated heat index ranges from "
-        f"{min(heat_indices_f):.1f}°F to "
-        f"{max(heat_indices_f):.1f}°F across "
+        f"{min(heat_indices_f):.1f}Â°F to "
+        f"{max(heat_indices_f):.1f}Â°F across "
         f"{len(hourly_forecast)} available forecast points. "
         f"The highest estimated HeatShield risk category is "
         f"{peak['riskLevel']}."
