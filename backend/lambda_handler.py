@@ -126,6 +126,7 @@ def route_api_request(method: str, path: str, query_params: Dict[str, str], body
 
 
 
+    
     if path in ["/api/coolspots", "/coolspots"] and method == "GET":
         lat_str = query_params.get("lat") or query_params.get("latitude")
         lon_str = query_params.get("lon") or query_params.get("longitude")
@@ -133,23 +134,61 @@ def route_api_request(method: str, path: str, query_params: Dict[str, str], body
         allow_demo = query_params.get("demo", "").lower() in ["true", "1"]
 
         if not lat_str or not lon_str:
-            return build_response(400, {"error": "Missing required parameters: lat and lon", "errorCode": "INVALID_INPUT"})
+            return build_response(
+                400,
+                {
+                    "error": "Missing required parameters: lat and lon",
+                    "errorCode": "INVALID_INPUT",
+                },
+            )
 
         try:
             lat = float(lat_str)
             lon = float(lon_str)
             radius_km = float(radius_str)
-        except ValueError:
-            return build_response(400, {"error": "Invalid numeric coordinates or radius parameter", "errorCode": "INVALID_INPUT"})
+        except (ValueError, TypeError):
+            return build_response(
+                400,
+                {
+                    "error": "Invalid numeric coordinates or radius parameter",
+                    "errorCode": "INVALID_INPUT",
+                },
+            )
 
         try:
             from coolspot_service import CoolSpotError
-            spots = coolspot_svc.get_nearby_coolspots(lat, lon, radius_km=radius_km, allow_demo=allow_demo)
+
+            spots = coolspot_svc.get_nearby_coolspots(
+                lat,
+                lon,
+                radius_km=radius_km,
+                allow_demo=allow_demo,
+            )
             return build_response(200, spots)
+
         except CoolSpotError as e:
-            return build_response(e.status_code, {"error": e.message, "errorCode": e.error_code})
-        except Exception as e:
-            return build_response(500, {"error": str(e), "errorCode": "INTERNAL_SERVER_ERROR"})
+            status_code = e.status_code
+            if status_code in (429, 502, 503, 504):
+                status_code = 503
+
+            return build_response(
+                status_code,
+                {
+                    "error": "Nearby cooling locations are temporarily unavailable.",
+                    "errorCode": "COOLSPOT_PROVIDER_UNAVAILABLE",
+                    "retryable": True,
+                    "details": e.message,
+                },
+            )
+
+        except Exception:
+            return build_response(
+                500,
+                {
+                    "error": "An unexpected error occurred while looking up cooling locations.",
+                    "errorCode": "COOLSPOT_INTERNAL_ERROR",
+                },
+            )
 
     if path in ["/api/risk", "/risk"] and method == "POST":
         try:

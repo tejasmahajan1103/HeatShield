@@ -189,12 +189,17 @@ export const CoolSpotsPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-[#009F87]">CoolSpot Discovery</span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-              hasLiveData
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${hasLiveData
                 ? 'bg-teal-50 text-teal-800 border-teal-200'
                 : 'bg-amber-50 text-amber-800 border-amber-200/80'
-            }`}>
-              {hasLiveData ? 'OpenStreetMap Live Data' : 'Sample Location Store'}
+              }`}>
+              {hasLiveData
+                ? 'OpenStreetMap Live Data'
+                : fetchError
+                  ? 'Live Data Temporarily Unavailable'
+                  : spots.length > 0
+                    ? 'Sample Data'
+                    : 'Waiting for Location Data'}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#102C4C] mt-1">Cooling Sanctuaries</h1>
@@ -207,27 +212,24 @@ export const CoolSpotsPage: React.FC = () => {
         <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200/80 self-start md:self-auto">
           <button
             onClick={() => setActiveTab('split')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeTab === 'split' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${activeTab === 'split' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
+              }`}
           >
             <MapIcon className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Split View</span>
           </button>
           <button
             onClick={() => setActiveTab('map')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeTab === 'map' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${activeTab === 'map' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
+              }`}
           >
             <MapIcon className="w-3.5 h-3.5" />
             <span>Map Only</span>
           </button>
           <button
             onClick={() => setActiveTab('list')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-              activeTab === 'list' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
-            }`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${activeTab === 'list' ? 'bg-[#009F87] text-white font-bold shadow-sm' : 'text-[#526985] hover:text-[#102C4C]'
+              }`}
           >
             <ListFilter className="w-3.5 h-3.5" />
             <span>List Only</span>
@@ -248,11 +250,10 @@ export const CoolSpotsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setOriginType('current')}
-              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                originType === 'current'
+              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${originType === 'current'
                   ? 'bg-[#009F87] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               <Compass className="w-3.5 h-3.5" />
               <span>Near Current Location</span>
@@ -261,11 +262,10 @@ export const CoolSpotsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setOriginType('route')}
-              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                originType === 'route'
+              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${originType === 'route'
                   ? 'bg-[#009F87] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               <Route className="w-3.5 h-3.5" />
               <span>Along Journey Route</span>
@@ -274,11 +274,10 @@ export const CoolSpotsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setOriginType('destination')}
-              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${
-                originType === 'destination'
+              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition ${originType === 'destination'
                   ? 'bg-[#009F87] text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               <Flag className="w-3.5 h-3.5" />
               <span>Near Destination</span>
@@ -295,11 +294,10 @@ export const CoolSpotsPage: React.FC = () => {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition ${
-                  isSelected
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition ${isSelected
                     ? 'bg-[#009F87] text-white font-bold shadow-md shadow-teal-500/20'
                     : 'bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100'
-                }`}
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{cat.label}</span>
