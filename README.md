@@ -4,10 +4,9 @@
 
 **Track:** Heat and Water --- Bharat Builds Tour: Environmental Hacks\
 **Repository:** https://github.com/tejasmahajan1103/HeatShield\
-**Live demo:**
+**Live project:**
 https://feature-route-aware-heat-risk.d3ysfyr1cozmt4.amplifyapp.com\
-**Current reference commit:** `6ad8134` --- Add risk history and improve
-cooling spot reliability
+
 
 ## The problem
 
@@ -58,26 +57,57 @@ AWS Amplify Hosting       API Gateway (REST, prod)
                     weather     / OSM      RiskHistory
 ```
 
-### AWS services used
+## Technology Stack and Services
 
--   **AWS Amplify Hosting:** serves the web frontend.
--   **Amazon API Gateway (REST API):** exposes backend routes.
--   **AWS Lambda (Python):** runs API handlers, weather/cooling-location
-    integration, and risk-history logic.
--   **Amazon DynamoDB:** stores risk-history records.
+HeatShield combines a React-based frontend with AWS serverless services and external weather and map data providers.
 
-The project uses third-party OpenWeather and OpenStreetMap/Overpass data
-providers. AWS services are used for hosting, API execution, and
-persistence.
+### Frontend
 
-## Technology stack
+| Technology | Purpose |
+|---|---|
+| React | Builds the user interface and interactive pages. |
+| TypeScript | Adds static typing to frontend code. |
+| Vite | Provides the development server and production build tooling. |
 
--   Frontend: React, TypeScript, Vite
--   Backend: Python, AWS Lambda
--   API: Amazon API Gateway REST API
--   Persistence: Amazon DynamoDB
--   External data: OpenWeather API, OpenStreetMap/Overpass API
--   Version control: Git and GitHub
+### AWS Cloud Services
+
+| Service | What it does in HeatShield |
+|---|---|
+| AWS Amplify Hosting | Hosts and deploys the web frontend. |
+| Amazon API Gateway (REST API) | Exposes API endpoints and routes requests to the backend. |
+| AWS Lambda (Python) | Executes backend logic for heat-risk assessments, weather and cooling-location integrations, and risk-history endpoints. |
+| Amazon DynamoDB | Stores and retrieves risk-assessment history. |
+
+### External Data Providers
+
+| Service | What it does in HeatShield |
+|---|---|
+| OpenWeather API | Supplies weather data used by the backend. |
+| OpenStreetMap (OSM) | Provides community-maintained map data. |
+| Overpass API | Queries mapped locations near a user's selected coordinates, including potentially useful public places and amenities. |
+
+### Backend and Development Tools
+
+- **Python:** Implements backend handlers and services.
+- **Python `unittest`:** Runs automated backend tests.
+- **Git and GitHub:** Track source-code changes and maintain project history.
+
+### Architecture Overview
+
+1. The user accesses the web application hosted on AWS Amplify.
+2. The frontend sends requests to Amazon API Gateway.
+3. API Gateway routes supported requests to the AWS Lambda backend.
+4. Lambda retrieves weather or nearby-location data from the configured external providers.
+5. Lambda reads or writes assessment history in Amazon DynamoDB.
+6. The API returns results to the frontend for display.
+
+### Verification and Limitations
+
+- Backend tests: 52 tests passed at the referenced development checkpoint.
+- Frontend production build: completed successfully.
+- Heat-risk results are estimates, not medical advice or official emergency warnings.
+- OpenStreetMap and Overpass data may be incomplete or outdated. Opening hours, accessibility, and air-conditioning availability must not be assumed without verification.
+- Amazon Bedrock model invocation was previously blocked by account authorization; a working Bedrock integration is not claimed.
 
 ## Run locally
 
@@ -157,69 +187,30 @@ CoolSpots API: a live response was observed from the deployed API.
 -   **Credentials:** API keys and AWS secrets must be kept out of GitHub
     and rotated if exposed.
 
-## Demo and submission
+  ## Development History
 
-The Environmental Hacks submission rules specify three items: a public
-repository, a YouTube demo video of up to three minutes (public or
-unlisted), and a short write-up explaining the problem, build, and AWS
-usage. The submission form and deadline are on the official event page.
+HeatShield is developed incrementally using Git and GitHub. The commit history records project checkpoints, feature development, reliability improvements, and deployment-related fixes.
 
--   Repository: https://github.com/tejasmahajan1103/HeatShield
--   Live app:
-    https://feature-route-aware-heat-risk.d3ysfyr1cozmt4.amplifyapp.com
--   Official event page: https://www.wemakedevs.org/aws/env
--   Official rules: https://www.wemakedevs.org/aws/rules
+### Key Development Milestones
 
-## Suggested three-minute demo script
+| Commit | Development milestone |
+|---|---|
+| `1e37593` | Initial checkpoint before Phase 1 code audit |
+| `bd18be6` | Checkpoint before route-aware risk implementation |
+| `285f95f` | Prepare frontend and route-aware risk features |
+| `b8f2a04` | Fix production Cool Spots API endpoint |
+| `e1f70f6` | Fix production Cool Spots API endpoint |
+| `2944330` | Add environment variable example |
+| `733196f` | Update project documentation |
+| `08be74d` | Improve heat risk and cooling spot reliability |
+| `cb816fc` | Remove unsupported Bedrock readiness badge |
+| `6ad8134` | Add risk history and improve cooling spot reliability |
 
-**0:00--0:20 --- Problem and audience**\
-"HeatShield helps people make more informed decisions during hot weather
-by bringing heat-risk guidance and nearby cooling-location discovery
-into one web experience."
+### Commit History
 
-**0:20--0:55 --- Assessment flow**\
-Open the live app and demonstrate the implemented heat-risk assessment.
-Explain the inputs and show the resulting estimate. Avoid calling it a
-certified heat index or medical prediction.
+Explore the complete development timeline, including commit details and code changes:
 
-**0:55--1:25 --- Nearby locations**\
-Show the CoolSpots experience and explain that it uses
-OpenStreetMap/Overpass data. Explicitly note that availability, opening
-hours, and cooling amenities depend on source data and should be
-verified.
+[View HeatShield Git Commit History](https://github.com/tejasmahajan1103/HeatShield/commits/feature/route-aware-heat-risk/)
 
-**1:25--1:50 --- Risk History**\
-Show the Risk History page and, if the live save/retrieve flow has been
-verified, save an assessment and reload the history. If it has not been
-verified, demonstrate only what is confirmed and do not imply successful
-persistence.
 
-**1:50--2:30 --- AWS architecture**\
-Show a simple architecture slide: Amplify Hosting → API Gateway → Lambda
-→ OpenWeather/Overpass and DynamoDB. Explain which services are actually
-deployed.
 
-**2:30--2:50 --- Testing and limitations**\
-Mention 52 passing backend tests and a successful frontend production
-build. Be transparent that third-party location data can be incomplete
-and some live opening/amenity claims need correction.
-
-**2:50--3:00 --- Impact**\
-"HeatShield's goal is to help users move from weather information to
-practical next steps. The next priorities are validating location
-details and testing end-to-end reliability."
-
-## Submission checklist
-
--   [ ] Confirm the official submission form is still open.
--   [ ] Confirm the repository is public and contains the intended code.
--   [ ] Record a demo of **less than three minutes**.
--   [ ] Upload the video to YouTube as public or unlisted.
--   [ ] Open the video link in a signed-out browser to test access.
--   [ ] Include the project problem, implementation, and AWS role in the
-    write-up.
--   [ ] List AI coding tools used, as required by the event rules.
--   [ ] Credit third-party libraries, APIs, assets, and their licenses
-    where required.
--   [ ] Never include API keys, credentials, or temporary test output
-    files in the public repository.
