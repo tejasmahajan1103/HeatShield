@@ -1,258 +1,225 @@
-# HeatShield — AI-Powered Heat Safety & Cooling Intelligence
+# HeatShield
 
-> **Know the heat. Find the cool. Stay safer.**
+## Heat-risk awareness and cooling-location assistance
 
-Built for the **Bharat Builds Tour — Environmental Hacks** hackathon.
+**Track:** Heat and Water --- Bharat Builds Tour: Environmental Hacks\
+**Repository:** https://github.com/tejasmahajan1103/HeatShield\
+**Live demo:**
+https://feature-route-aware-heat-risk.d3ysfyr1cozmt4.amplifyapp.com\
+**Current reference commit:** `6ad8134` --- Add risk history and improve
+cooling spot reliability
 
-HeatShield is a heat-safety web application designed to help people understand environmental heat exposure, discover nearby cooling locations, and plan outdoor activities with more awareness of heat conditions.
+## The problem
 
-## Key Features
+Extreme heat can make everyday travel and outdoor activity risky. People
+need understandable, locally relevant information about heat exposure
+and nearby places that may offer relief. A weather reading alone does
+not tell a user what to do next.
 
-### 1. Environmental Dashboard (`/app`)
-- Presents weather and heat-safety information.
-- Provides entry points to heat-risk assessment and nearby cooling locations.
-- Includes assessment history and application settings where available.
-- Uses the source-status fields returned by the backend to distinguish live weather from demo/fallback data.
+## The solution
 
-### 2. Heat-Risk Assessment (`/app/heat-risk`)
-- Accepts a location and activity/exposure details.
-- Returns a risk score, risk category, contributing factors, uncertainty information, and a weather snapshot.
-- The backend uses the NOAA National Weather Service heat-index equation as part of its environmental heat assessment.
-- Activity intensity, exposure duration, and shade are represented as additional risk factors.
-- **Safety note:** HeatShield's score and categories are application-level guidance. They are not an official medical diagnosis or a probability of illness. Follow local heat warnings and seek professional or emergency help when appropriate.
+HeatShield is a web application that combines a heat-risk assessment
+experience with nearby cooling-location discovery and assessment
+history. It aims to turn weather and location information into practical
+guidance. Risk outputs are estimates, not medical advice or official
+emergency warnings.
 
-### 3. Cool Spots Discovery (`/app/coolspots`)
-- Finds nearby cooling locations using OpenStreetMap-based data services.
-- Displays results on an interactive Leaflet map and in a list.
-- Supports available category, search, distance, and location-related filters.
-- Provides route/directions features and handles unavailable results or API errors.
-- Location availability and details depend on the external map-data provider; verify opening hours and access before travelling.
+## What is implemented
 
-### 4. Safety Recommendations (`/app/recommendations`)
-- Presents heat-safety recommendations associated with assessment results.
-- May include hydration guidance, rest breaks, warning signs, and lower-risk activity timing where supported by the application.
-- The recommendations are informational and should not replace official public-health advice.
+-   **Heat-risk assessment UI:** users can view an assessment based on
+    the application's configured inputs and risk engine.
+-   **Weather integration:** the backend uses the OpenWeather API.
+-   **Nearby cooling locations:** the backend queries
+    OpenStreetMap/Overpass data for potentially useful places and
+    amenities.
+-   **Risk History:** the frontend can save and retrieve assessments
+    through the risk-history API backed by DynamoDB.
+-   **AWS-hosted frontend and API:** the frontend is deployed through
+    AWS Amplify Hosting; API Gateway routes requests to AWS Lambda.
+-   **Automated checks:** the current backend test suite completed with
+    52 tests passing; `npm run build` completed successfully.
 
-### 5. History and Settings (`/app/history`, `/app/settings`)
-- Stores assessment history in browser LocalStorage.
-- Provides supported preferences such as temperature units, distance units, and default activity.
-- Because history is stored locally, it is tied to the browser/device and is not a cloud-synced account history.
+## AWS architecture
 
-## Technology Stack
-
-### Frontend
-- React 19 and TypeScript
-- Vite
-- Tailwind CSS v4
-- React Router v7
-- Leaflet and React-Leaflet with OpenStreetMap
-- Lucide React
-- Vitest for tests and Oxlint for linting
-
-### Backend and external services
-- Python backend with a shared request router for local HTTP-server and AWS Lambda execution
-- Amazon API Gateway
-- AWS Lambda (`HeatShield-RiskEngine`)
-- OpenWeather API for live weather data
-- OpenStreetMap-based services for nearby cooling-location discovery
-- NOAA National Weather Service heat-index equation
-
-### Hosting and version control
-- AWS Amplify for frontend hosting
-- Amazon CloudWatch for Lambda monitoring and alarms
-- Git and GitHub
-
-## Architecture
-
-```text
-                       User's Browser
-                             |
-                             v
-                 React + TypeScript Frontend
-                       AWS Amplify
-                             |
-                             v
-                      Amazon API Gateway
-                             |
-                             v
-                 AWS Lambda: HeatShield-RiskEngine
-                      /              \
-                     v                v
-              Weather Service    Heat-Risk Engine
-                     |                |
-                     v                v
-               OpenWeather API   NOAA NWS heat-index method
-                             \
-                              v
-                       Cool Spots Service
+``` text
+Browser
+  |
+  v
+React + TypeScript + Vite frontend
+  |                         \
+  v                          v
+AWS Amplify Hosting       API Gateway (REST, prod)
                               |
                               v
-                 OpenStreetMap-based data services
+                      AWS Lambda: HeatShield-RiskEngine
+                        |         |          |
+                        v         v          v
+                   OpenWeather  Overpass   DynamoDB
+                    weather     / OSM      RiskHistory
 ```
 
-The frontend communicates with the backend through HTTP endpoints. The same Python request-routing logic is used by AWS Lambda and the local development HTTP server. Some UI preferences/history are stored in the browser. Cognito, Bedrock, DynamoDB, and AI-chat features are not listed as deployed components here because their integration has not been confirmed as part of the current working application.
+### AWS services used
 
-## Production API
+-   **AWS Amplify Hosting:** serves the web frontend.
+-   **Amazon API Gateway (REST API):** exposes backend routes.
+-   **AWS Lambda (Python):** runs API handlers, weather/cooling-location
+    integration, and risk-history logic.
+-   **Amazon DynamoDB:** stores risk-history records.
 
-**API base URL:**
+The project uses third-party OpenWeather and OpenStreetMap/Overpass data
+providers. AWS services are used for hosting, API execution, and
+persistence.
 
-```text
-https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod
-```
+## Technology stack
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/health` | Health status and weather-provider configuration |
-| `GET` | `/api/weather?location=Pune` | Current weather for a named location |
-| `GET` | `/api/forecast?location=Pune` | Weather forecast for a named location |
-| `POST` | `/api/risk` | Calculate a heat-risk assessment |
-| `GET` | `/api/coolspots?lat=18.5204&lon=73.8567&radiusKm=5` | Discover nearby cooling locations |
+-   Frontend: React, TypeScript, Vite
+-   Backend: Python, AWS Lambda
+-   API: Amazon API Gateway REST API
+-   Persistence: Amazon DynamoDB
+-   External data: OpenWeather API, OpenStreetMap/Overpass API
+-   Version control: Git and GitHub
 
-### Example: heat-risk request
+## Run locally
 
-```json
-{
-  "location": "Pune"
-}
-```
+Requirements: Node.js/npm, Python 3, and AWS credentials only if testing
+AWS-backed routes directly.
 
-PowerShell example:
+1.  Clone the repository:
 
-```powershell
-$body = @{ location = "Pune" } | ConvertTo-Json
+    ``` bash
+    git clone https://github.com/tejasmahajan1103/HeatShield.git
+    cd HeatShield
+    ```
 
-Invoke-RestMethod `
-  -Uri "https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/risk" `
-  -Method Post `
-  -ContentType "application/json" `
-  -Body $body
-```
+2.  Install frontend dependencies:
 
-## Getting Started
+    ``` bash
+    npm install
+    ```
 
-### Prerequisites
+3.  Configure required environment variables using the repository's
+    `.env.example` and the project documentation. Do not commit real API
+    keys.
 
-- Node.js and npm
-- Python (Python 3.12 is the Lambda runtime; a compatible local Python installation is recommended)
-- Git
-- An OpenWeather API key for local live-weather testing
+4.  Start the frontend:
 
-### 1. Clone the repository
+    ``` bash
+    npm run dev
+    ```
 
-```bash
-git clone https://github.com/tejasmahajan1103/HeatShield.git
-cd HeatShield
-git checkout feature/route-aware-heat-risk
-```
+5.  Run backend tests:
 
-### 2. Install frontend dependencies
+    ``` bash
+    python -m unittest discover -s backend/tests -q
+    ```
 
-```bash
-npm install
-```
+6.  Build the frontend:
 
-### 3. Configure the frontend
+    ``` bash
+    npm run build
+    ```
 
-Create a root `.env.local` file. Use `.env.example` as a reference and set the API base URL:
+Exact local backend setup may depend on the AWS/Lambda deployment
+configuration and environment variables.
 
-```dotenv
-VITE_API_BASE_URL=https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod
-```
+## Verification status
 
-For local end-to-end testing, set this value to the local backend URL instead, if that is the environment being tested. Vite variables prefixed with `VITE_` are bundled into client-side code; never put secret keys in them.
+At the current reference commit: - Backend unit tests: **52 passed**. -
+Frontend production build: **successful**. - AWS Lambda deployment: a
+deployment was reported as successful in the project workflow. - Live
+CoolSpots API: a live response was observed from the deployed API.
 
-### 4. Run the frontend
+## Known limitations and responsible-use notes
 
-```bash
-npm run dev
-```
+-   **Heat-risk estimates:** the result is an estimate produced by the
+    project's configured risk logic. It is not a medical diagnosis, a
+    certified heat index, or an official emergency alert.
+-   **Cooling-location data:** OpenStreetMap data can be incomplete or
+    stale. A mapped location is not proof that it is open, accessible,
+    staffed, or suitable for cooling.
+-   **Opening status and air conditioning:** previous live responses
+    showed an `isOpenNow` value of `true` while `openStatusVerified` was
+    `false`, and some locations were labelled `Air Conditioned` without
+    verified evidence. These claims require correction and retesting
+    before describing the cooling-location feature as fully reliable.
+-   **AI/Bedrock:** Amazon Bedrock model invocation was previously
+    blocked by account authorization. Do not claim Bedrock or a
+    generative AI model is integrated unless it is subsequently enabled
+    and verified. Describe the current risk logic as
+    rule-based/heuristic where applicable.
+-   **Production readiness:** passing unit tests and building the
+    frontend do not by themselves establish full end-to-end production
+    reliability. Risk-history live flows and all displayed live-data
+    claims should be verified.
+-   **Privacy:** the browser's anonymous session identifier is not user
+    authentication. Do not store sensitive personal information in the
+    app.
+-   **Credentials:** API keys and AWS secrets must be kept out of GitHub
+    and rotated if exposed.
 
-Open the local address printed by Vite, usually `http://localhost:5173`.
+## Demo and submission
 
-### 5. Configure and run the local backend (optional)
+The Environmental Hacks submission rules specify three items: a public
+repository, a YouTube demo video of up to three minutes (public or
+unlisted), and a short write-up explaining the problem, build, and AWS
+usage. The submission form and deadline are on the official event page.
 
-The local HTTP server entry point is `backend/server.py`, and the example backend settings are in `backend/.env.example`. The example file documents the `OPENWEATHER_API_KEY`, `OPENWEATHER_BASE_URL`, `HOST`, `PORT`, and timeout settings. Configure the variables in your local shell/environment; do not commit actual credentials.
+-   Repository: https://github.com/tejasmahajan1103/HeatShield
+-   Live app:
+    https://feature-route-aware-heat-risk.d3ysfyr1cozmt4.amplifyapp.com
+-   Official event page: https://www.wemakedevs.org/aws/env
+-   Official rules: https://www.wemakedevs.org/aws/rules
 
-PowerShell example for the current terminal session:
+## Suggested three-minute demo script
 
-```powershell
-$env:OPENWEATHER_API_KEY = "your_openweather_api_key_here"
-$env:OPENWEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5"
-python backend/server.py
-```
+**0:00--0:20 --- Problem and audience**\
+"HeatShield helps people make more informed decisions during hot weather
+by bringing heat-risk guidance and nearby cooling-location discovery
+into one web experience."
 
-The default local server address is `http://127.0.0.1:8000`. Ensure the frontend's API base URL points to that local server when testing the full application locally. Install any required Python dependencies in your chosen environment if an import error identifies a missing package. The repository currently does not include a `requirements.txt` or `pyproject.toml` dependency manifest.
+**0:20--0:55 --- Assessment flow**\
+Open the live app and demonstrate the implemented heat-risk assessment.
+Explain the inputs and show the resulting estimate. Avoid calling it a
+certified heat index or medical prediction.
 
-### 6. Build the frontend for production
+**0:55--1:25 --- Nearby locations**\
+Show the CoolSpots experience and explain that it uses
+OpenStreetMap/Overpass data. Explicitly note that availability, opening
+hours, and cooling amenities depend on source data and should be
+verified.
 
-```bash
-npm run build
-```
+**1:25--1:50 --- Risk History**\
+Show the Risk History page and, if the live save/retrieve flow has been
+verified, save an assessment and reload the history. If it has not been
+verified, demonstrate only what is confirmed and do not imply successful
+persistence.
 
-Vite writes the production assets to `dist/`.
+**1:50--2:30 --- AWS architecture**\
+Show a simple architecture slide: Amplify Hosting → API Gateway → Lambda
+→ OpenWeather/Overpass and DynamoDB. Explain which services are actually
+deployed.
 
-## Testing and Validation
+**2:30--2:50 --- Testing and limitations**\
+Mention 52 passing backend tests and a successful frontend production
+build. Be transparent that third-party location data can be incomplete
+and some live opening/amenity claims need correction.
 
-### Frontend
+**2:50--3:00 --- Impact**\
+"HeatShield's goal is to help users move from weather information to
+practical next steps. The next priorities are validating location
+details and testing end-to-end reliability."
 
-```bash
-npm test
-npm run lint
-npm run build
-```
+## Submission checklist
 
-### Backend
-
-Install pytest in your chosen Python environment if it is not present:
-
-```bash
-python -m pip install pytest
-```
-
-Run the backend tests from the repository root:
-
-```bash
-python -m pytest backend/tests -v
-```
-
-### Verification results observed on October 11, 2026
-
-- Frontend tests: **49 passed** across 8 test files.
-- Backend tests: **38 passed**.
-- Production build: **successful**; Vite reported a JavaScript chunk-size warning.
-- Lint: **0 errors and 7 warnings**.
-- Production health, live weather, and heat-risk endpoints: **responded successfully** during manual verification.
-- Main production UI flows: reported working during manual verification.
-- AWS Amplify deployment: **successful** for commit `2944330` (`Add environment variable example`) during this verification session.
-
-Rerun the checks after code changes; these results describe the tested state at that time.
-
-## Deployment
-
-- **Frontend hosting:** AWS Amplify
-- **Backend:** AWS Lambda behind Amazon API Gateway
-- **AWS Region:** `ap-south-1` (Mumbai)
-- **GitHub repository:** https://github.com/tejasmahajan1103/HeatShield
-- **Working branch:** `feature/route-aware-heat-risk`
-- **Amplify build command:** `npm run build`
-- **Build output directory:** `dist`
-
-## Security and Privacy
-
-- Never commit real API keys, AWS credentials, or private environment files.
-- Keep `.env.local` and backend local secret files out of Git.
-- Treat all `VITE_` variables as public client-side configuration.
-- Request location access only when location-based features need it.
-- Avoid exposing personal location data or secrets in screenshots and logs.
-
-## Limitations
-
-- Weather and nearby-place results depend on external providers, network availability, and API limits.
-- Some services may return fallback/demo data when supported; check the data-source status before relying on a reading.
-- Route estimates and risk scores are informational, not guarantees of safety.
-- Assessment history is stored in browser LocalStorage, not a cloud account.
-- An AI assistant and other future AWS integrations should be described as planned until implemented and verified.
-
-## License
-
-No license is currently documented in this README. Add a license if you intend to permit reuse or redistribution.
+-   [ ] Confirm the official submission form is still open.
+-   [ ] Confirm the repository is public and contains the intended code.
+-   [ ] Record a demo of **less than three minutes**.
+-   [ ] Upload the video to YouTube as public or unlisted.
+-   [ ] Open the video link in a signed-out browser to test access.
+-   [ ] Include the project problem, implementation, and AWS role in the
+    write-up.
+-   [ ] List AI coding tools used, as required by the event rules.
+-   [ ] Credit third-party libraries, APIs, assets, and their licenses
+    where required.
+-   [ ] Never include API keys, credentials, or temporary test output
+    files in the public repository.
