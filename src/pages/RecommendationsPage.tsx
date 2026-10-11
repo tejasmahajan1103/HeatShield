@@ -104,7 +104,7 @@ export const RecommendationsPage: React.FC = () => {
             )}
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200 flex items-center gap-1">
               <Cpu className="w-3 h-3 text-purple-600" />
-              <span>Bedrock AI Ready</span>
+              <span>Personalized Safety Guidance</span>
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2">Personalized Heat Safety Guidance</h1>
