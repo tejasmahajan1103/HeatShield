@@ -32,7 +32,7 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
               isDemo ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
             }`}>
-              {isDemo ? 'Demo Weather Data' : 'Live Weather Provider'}
+              {isDemo ? 'Demo Weather Data (Simulated)' : 'Live Weather Provider'}
             </span>
           </div>
           <h3 className="text-xl font-extrabold text-slate-900 mt-1">Heat-Exposure Risk</h3>
@@ -41,13 +41,26 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
         <div className="flex items-center gap-3">
           <div className={`px-3 py-1.5 rounded-full border text-xs font-bold flex items-center gap-2 ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}>
             <ShieldAlert className="w-4 h-4" />
-            <span>{result.level} Risk</span>
+            <span>{isDemo ? `${result.level} (Demo Simulation)` : `${result.level} Risk`}</span>
           </div>
           <div className="px-3.5 py-1.5 rounded-2xl bg-stone-100 border border-stone-200 text-slate-900 font-mono font-black text-lg">
             {result.score}<span className="text-xs text-slate-500 font-sans font-normal">/100</span>
           </div>
         </div>
       </div>
+
+      {/* Honest Demo Telemetry Banner */}
+      {isDemo && (
+        <div className="mt-4 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex items-start gap-2.5">
+          <HelpCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold block">Demo Telemetry Mode — Live Weather Observations Unavailable</span>
+            <p className="text-amber-900 leading-relaxed">
+              Actual real-world heat exposure risk cannot be reliably determined without live station observations. The risk score and values shown are simulated estimates for demonstration purposes only.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Progress dial bar */}
       <div className="py-4">
@@ -73,7 +86,7 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
         <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 text-xs">
           <div className="flex items-center gap-1.5 font-bold text-slate-700 mb-1">
             <Thermometer className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>Actual Ambient Air</span>
+            <span>{isDemo ? 'Simulated Ambient Air' : 'Actual Ambient Air'}</span>
           </div>
           <div className="text-base font-black text-slate-900 font-mono">
             {ambientC.toFixed(1)}°C <span className="text-xs font-normal text-slate-500">({ambientF}°F)</span>
@@ -89,7 +102,7 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
           <div className="text-base font-black text-amber-950 font-mono">
             {heatIndexC.toFixed(1)}°C <span className="text-xs font-normal text-amber-700">({heatIndexF}°F)</span>
           </div>
-          <div className="text-[11px] text-amber-800 mt-0.5">Apparent Temperature</div>
+          <div className="text-[11px] text-amber-800 mt-0.5">{isDemo ? 'Simulated Apparent Temp' : 'Apparent Temperature'}</div>
         </div>
 
         <div className="p-3.5 rounded-2xl bg-orange-50/80 border border-orange-200/90 text-xs">
@@ -102,6 +115,17 @@ export const HeatRiskCard: React.FC<HeatRiskCardProps> = ({ result, showDetailsL
           </div>
           <div className="text-[11px] text-orange-800 mt-0.5">Category: {result.level} Risk</div>
         </div>
+      </div>
+
+      <div className="text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2 pt-1 pb-2 border-b border-stone-100">
+        <span>
+          Data Source: <strong className="text-slate-700 font-semibold">{isDemo ? 'Simulated Demonstration Model (Unverified)' : 'Live Weather Station (OpenWeather API v2.5)'}</strong>
+        </span>
+        {result.weatherSnapshot?.observationTime && (
+          <span className="font-mono text-[10px] text-slate-500">
+            Observed: {new Date(result.weatherSnapshot.observationTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
       </div>
 
       <p className="text-sm text-slate-700 leading-relaxed py-2 font-medium">

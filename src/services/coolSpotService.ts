@@ -216,6 +216,28 @@ export class HybridCoolSpotService implements CoolSpotService {
     return `${lat.toFixed(4)}:${lon.toFixed(4)}:${radiusKm.toFixed(1)}:${origin}:${cat}:${q}:${shade}:${water}:${indoor}`;
   }
 
+  getAnyCachedNear(lat: number, lon: number, radiusKm: number): CoolSpot[] | undefined {
+    for (const [key, entry] of this.responseCache.entries()) {
+      if (entry && entry.spots && entry.spots.length > 0) {
+        const parts = key.split(':');
+        const cLat = parseFloat(parts[0]);
+        const cLon = parseFloat(parts[1]);
+        if (!isNaN(cLat) && !isNaN(cLon)) {
+          const d = calculateHaversineDistance(lat, lon, cLat, cLon);
+          if (d <= radiusKm) {
+            return entry.spots.map(spot => ({
+              ...spot,
+              dataSourceStatus: 'osm_live_cached',
+              isStaleCached: true,
+              amenities: [...spot.amenities]
+            }));
+          }
+        }
+      }
+    }
+    return undefined;
+  }
+
   private getCached(key: string): CoolSpot[] | undefined {
     const entry = this.responseCache.get(key);
     if (!entry) return undefined;
@@ -239,19 +261,24 @@ export class HybridCoolSpotService implements CoolSpotService {
 
   private getApiUrlsToTry(): string[] {
     const customBase = (import.meta.env?.VITE_API_BASE_URL as string) || (import.meta.env?.VITE_WEATHER_API_URL as string);
+    const urls: string[] = [];
     if (customBase) {
       const cleanBase = customBase.replace(/\/+$/, '');
-      if (cleanBase.endsWith('/api/coolspots')) {
-        return [cleanBase];
-      }
-      const fullUrl = cleanBase.endsWith('/api') ? `${cleanBase}/coolspots` : `${cleanBase}/api/coolspots`;
-      return [fullUrl];
+      const fullUrl = cleanBase.endsWith('/api/coolspots')
+        ? cleanBase
+        : (cleanBase.endsWith('/api') ? `${cleanBase}/coolspots` : `${cleanBase}/api/coolspots`);
+      urls.push(fullUrl);
+    } else {
+      urls.push('https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots');
     }
-    const defaultProdEndpoint = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api/coolspots';
+
     if (import.meta.env?.DEV) {
-      return [defaultProdEndpoint, 'http://127.0.0.1:8000/api/coolspots'];
+      const localUrl = 'http://127.0.0.1:8000/api/coolspots';
+      if (!urls.includes(localUrl)) {
+        urls.push(localUrl);
+      }
     }
-    return [defaultProdEndpoint];
+    return urls;
   }
 
   private async fetchFromApiCandidate(baseUrl: string, lat: number, lon: number, radiusKm: number, signal?: AbortSignal): Promise<ApiFetchResult> {
@@ -303,12 +330,16 @@ export class HybridCoolSpotService implements CoolSpotService {
           waterVerified: Boolean(item.waterVerified),
           openStatusVerified: Boolean(item.openStatusVerified),
           isOpenNow: Boolean(item.isOpenNow),
-          operatingHours: String(item.operatingHours || 'Public Access'),
+          operatingHours: String(item.operatingHours || (item.openStatusVerified ? 'Public Access' : 'Public Access / Check Local Hours')),
           lastVerifiedTimestamp: String(item.lastVerifiedTimestamp || new Date().toISOString()),
           description: String(item.description || ''),
           address: String(item.address || ''),
           amenities: Array.isArray(item.amenities) ? item.amenities.map(String) : [],
-          isSampleData: Boolean(item.isSampleData)
+          isSampleData: Boolean(item.isSampleData),
+          dataSourceStatus: (item.dataSourceStatus as any) || (item.isSampleData ? 'demo_simulated' : 'osm_live'),
+          cachedAt: item.cachedAt,
+          cacheAgeSeconds: item.cacheAgeSeconds,
+          isStaleCached: Boolean(item.isStaleCached)
         }));
 
         console.log(`[CoolSpot API Diagnostic] Successfully fetched ${spots.length} spots from ${baseUrl} (Duration: ${durationMs}ms, Status: 200)`);
@@ -371,9 +402,7 @@ export class HybridCoolSpotService implements CoolSpotService {
         return res;
       }
       lastResult = res;
-      // A browser network error often means the configured API is unreachable/CORS-blocked;
-      // trying a local fallback URL in production cannot help and wastes time.
-      if (res.error === 'NETWORK_ERROR' || res.error === 'TIMEOUT' || res.error === 'CANCELLED') break;
+      if (res.error === 'CANCELLED') break;
     }
 
     return lastResult;
@@ -435,7 +464,22 @@ export class HybridCoolSpotService implements CoolSpotService {
         return applyFilters(fetchedSpots, filters);
       } else if (apiRes.error === 'CANCELLED') {
         return [];
-      } else if (apiRes.error && apiRes.error !== 'HTML_RESPONSE') {
+      } else {
+        // When live API fails, check for previously cached entries nearby to prevent complete outage
+        const nearCache = this.getAnyCachedNear(targetCoords.latitude, targetCoords.longitude, radiusKm);
+        if (nearCache && nearCache.length > 0) {
+          const recalculated = nearCache.map(spot => ({
+            ...spot,
+            distanceKm: Number(calculateHaversineDistance(targetCoords!.latitude, targetCoords!.longitude, spot.latitude, spot.longitude).toFixed(1))
+          }));
+          return applyFilters(recalculated, filters);
+        }
+
+        if (apiRes.error === 'HTML_RESPONSE') {
+          // HTML fallback response indicates endpoint routed to index.html; fall back to sample store
+          return this.mockService.getCoolSpots(filters);
+        }
+
         const label = apiRes.error === 'RATE_LIMITED'
           ? 'RATE_LIMITED'
           : (apiRes.error === 'TIMEOUT' ? 'TIMEOUT' : (apiRes.status ? `HTTP_${apiRes.status}` : apiRes.error));
@@ -446,6 +490,10 @@ export class HybridCoolSpotService implements CoolSpotService {
     // Fallback to sample store if no coordinates provided or offline fallback
     const mockResult = await this.mockService.getCoolSpots(filters);
     return mockResult;
+  }
+
+  async getSampleCoolSpots(filters?: CoolSpotFilterOptions): Promise<CoolSpot[]> {
+    return this.mockService.getCoolSpots(filters);
   }
 
   async getCoolSpotById(id: string): Promise<CoolSpot | undefined> {

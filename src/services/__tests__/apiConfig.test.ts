@@ -1,8 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { HybridCoolSpotService } from '../coolSpotService';
 import { HybridWeatherService } from '../weatherService';
 
 describe('API URL Configuration & Production Endpoint Security Tests', () => {
+  const originalBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  beforeEach(() => {
+    delete (import.meta.env as any).VITE_API_BASE_URL;
+  });
+
+  afterEach(() => {
+    if (originalBaseUrl !== undefined) {
+      (import.meta.env as any).VITE_API_BASE_URL = originalBaseUrl;
+    } else {
+      delete (import.meta.env as any).VITE_API_BASE_URL;
+    }
+  });
+
   it('verifies coolSpotService resolves deployed AWS API Gateway endpoint by default', () => {
     const service = new HybridCoolSpotService();
     // Access private getApiUrlsToTry using any casting for test verification

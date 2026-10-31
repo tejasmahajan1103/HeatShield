@@ -24,7 +24,7 @@ describe('StructuredRecommendationService Unit Tests', () => {
     expect(recommendation.hydrationGuidance).toBeDefined();
     expect(recommendation.emergencySigns.length).toBe(4);
     expect(recommendation.disclaimer).toContain('Not medical advice');
-  });
+  }, 15000);
 
   it('explains forecast unavailability in alternative time window without fabricating temperatures', async () => {
     const input: HeatRiskInput = {

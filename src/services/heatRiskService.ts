@@ -1,5 +1,5 @@
 import type { HeatRiskInput, HeatRiskResult, RiskLevel, WeatherData, ContributingFactor } from '../types';
-import { weatherService } from './weatherService';
+import { weatherService, type WeatherService } from './weatherService';
 
 export interface HeatRiskService {
   calculateRisk(input: HeatRiskInput): Promise<HeatRiskResult>;
@@ -93,6 +93,12 @@ export function calculateNOAAHeatIndex(tempInput: number, humidityPercent: numbe
  * Model Version: v1.1-noaa-nws
  */
 export class DeterministicHeatRiskService implements HeatRiskService {
+  private weatherSvc: WeatherService;
+
+  constructor(customWeatherService?: WeatherService) {
+    this.weatherSvc = customWeatherService || weatherService;
+  }
+
   async calculateRisk(input: HeatRiskInput): Promise<HeatRiskResult> {
     // 1. Input Validation & Bounds Sanity Checks
     if (!input) {
@@ -107,9 +113,11 @@ export class DeterministicHeatRiskService implements HeatRiskService {
       throw new Error('Invalid duration: Duration must be a valid number between 1 and 1440 minutes (24 hours).');
     }
 
-    const weather: WeatherData = (input.latitude !== undefined && input.longitude !== undefined)
-      ? await weatherService.getCurrentWeatherByCoords(input.latitude, input.longitude)
-      : await weatherService.getCurrentWeather(input.location);
+    const weather: WeatherData = input.weatherOverride
+      ? input.weatherOverride
+      : (input.latitude !== undefined && input.longitude !== undefined)
+      ? await this.weatherSvc.getCurrentWeatherByCoords(input.latitude, input.longitude)
+      : await this.weatherSvc.getCurrentWeather(input.location);
 
     // Weather Data Clamping
     const tempC = Math.max(-50, Math.min(60, weather.temperatureC));
@@ -121,29 +129,60 @@ export class DeterministicHeatRiskService implements HeatRiskService {
     // 2. Pure Meteorological NOAA NWS Heat Index Calculation
     const { heatIndexF, heatIndexC } = calculateNOAAHeatIndex(tempC, humidityPercent);
 
-    // 3. Transparent HeatShield Risk Category Mapping (Derived from NOAA NWS Heat Index Ranges)
+    // 3. Calibrated HeatShield 0-100 Presentation Score Model
+    // Aligned with official NOAA National Weather Service heat index advisory thresholds:
+    // - HI < 80°F: Normal (Low Risk: baseline score 5 - 20)
+    // - 80°F <= HI < 90°F: Caution (Moderate Risk entry: baseline score 20 - 36)
+    // - 90°F <= HI < 103°F: Extreme Caution (Moderate Risk: baseline score 36 - 65)
+    // - 103°F <= HI < 125°F: Danger (High Risk: baseline score 66 - 85)
+    // - HI >= 125°F: Extreme Danger (Extreme Risk: baseline score 86 - 99)
+    let baseScore = 5.0;
+    if (heatIndexF <= 70) {
+      baseScore = 5.0;
+    } else if (heatIndexF <= 80) {
+      baseScore = 5.0 + ((heatIndexF - 70) / 10) * 15.0;
+    } else if (heatIndexF <= 90) {
+      baseScore = 20.0 + ((heatIndexF - 80) / 10) * 16.0;
+    } else if (heatIndexF <= 103) {
+      baseScore = 36.0 + ((heatIndexF - 90) / 13) * 29.0;
+    } else if (heatIndexF <= 125) {
+      baseScore = 65.0 + ((heatIndexF - 103) / 22) * 20.0;
+    } else {
+      baseScore = Math.min(99, 85.0 + ((heatIndexF - 125) / 15) * 14.0);
+    }
+
+    const activityBonus = input.activity === 'running' || input.activity === 'outdoor_work' ? 8 : input.activity === 'cycling' ? 3 : 0;
+    const durationBonus = input.durationMinutes > 120 ? 7 : input.durationMinutes > 60 ? 4 : input.durationMinutes < 30 ? -2 : 0;
+    
+    // At night, direct solar radiation bonus is zero
+    const sunBonus = !isDaylight ? 0 : input.shadeAvailability === 'direct_sun' ? 5 : input.shadeAvailability === 'partial_shade' ? 0 : -5;
+
+    const presentationScore = Math.min(99, Math.max(5, Math.round(baseScore + activityBonus + durationBonus + sunBonus)));
+
+    // 4. Unified Risk Level Mapping (matching presentation score dial: Low 0-35, Moderate 36-65, High 66-85, Extreme 86-100)
+    // Safeguarded by NOAA Danger (HI >= 103°F) and Extreme Danger (HI >= 125°F)
     let level: RiskLevel = 'Low';
     let levelColor = '#10B981';
     let summary = 'Environmental heat index is within mild limits. Baseline hydration recommended.';
 
-    if (heatIndexF >= 103) {
+    if (presentationScore >= 86 || heatIndexF >= 125) {
       level = 'Extreme';
       levelColor = '#EF4444';
-      summary = 'DANGER: Environmental heat index indicates potential heat cramps, exhaustion, or heat stroke risk with continued exertion.';
-    } else if (heatIndexF >= 90) {
+      summary = 'DANGER: Extreme environmental heat stress. High risk of heat stroke or heat exhaustion with physical exertion.';
+    } else if (presentationScore >= 66 || heatIndexF >= 103) {
       level = 'High';
       levelColor = '#F97316';
-      summary = 'EXTREME CAUTION: Elevated environmental heat index. Heat cramps and heat exhaustion possible with prolonged exposure.';
-    } else if (heatIndexF >= 80) {
+      summary = 'WARNING: Elevated heat risk. Heat cramps and heat exhaustion possible with prolonged exposure.';
+    } else if (presentationScore >= 36 || heatIndexF >= 90) {
       level = 'Moderate';
       levelColor = '#F59E0B';
-      summary = 'CAUTION: Environmental heat index requires caution. Fatigue possible with prolonged physical activity.';
+      summary = 'CAUTION: Moderate heat index. Fatigue and thermal stress possible with prolonged activity; maintain regular hydration.';
     } else {
       level = 'Low';
       levelColor = '#10B981';
     }
 
-    // 4. Contextual Exposure Guidance & Adjustments (Accounts for Nighttime)
+    // 5. Contextual Exposure Guidance & Adjustments (Accounts for Nighttime)
     let shadeDesc = 'Direct sunshine (NWS notes direct sun can increase effective heat sensation by up to +15°F)';
     if (!isDaylight) {
       shadeDesc = 'Nighttime Assessment: Direct solar radiation is absent after sunset.';
@@ -173,33 +212,11 @@ export class DeterministicHeatRiskService implements HeatRiskService {
       durationLabel = '> 2 hours prolonged exposure';
     }
 
-    // 5. Calibrated HeatShield 0-100 Presentation Score Model
-    let baseScore = 5.0;
-    if (heatIndexF <= 70) {
-      baseScore = 5.0;
-    } else if (heatIndexF < 80) {
-      baseScore = 5.0 + ((heatIndexF - 70) / 10) * 20.0;
-    } else if (heatIndexF < 90) {
-      baseScore = 26.0 + ((heatIndexF - 80) / 10) * 24.0;
-    } else if (heatIndexF < 103) {
-      baseScore = 51.0 + ((heatIndexF - 90) / 13) * 24.0;
-    } else {
-      baseScore = Math.min(95, 76.0 + ((heatIndexF - 103) / 20) * 19.0);
-    }
-
-    const activityBonus = input.activity === 'running' || input.activity === 'outdoor_work' ? 8 : input.activity === 'cycling' ? 3 : 0;
-    const durationBonus = input.durationMinutes > 120 ? 7 : input.durationMinutes > 60 ? 4 : input.durationMinutes < 30 ? -2 : 0;
-    
-    // At night, direct solar radiation bonus is zero
-    const sunBonus = !isDaylight ? 0 : input.shadeAvailability === 'direct_sun' ? 5 : input.shadeAvailability === 'partial_shade' ? 0 : -5;
-
-    const presentationScore = Math.min(99, Math.max(5, Math.round(baseScore + activityBonus + durationBonus + sunBonus)));
-
     const contributingFactors: ContributingFactor[] = [
       {
-        factor: `Environmental Heat Index (${heatIndexC}°C / ${heatIndexF}°F)`,
-        impact: heatIndexF >= 90 ? 'High' : heatIndexF >= 80 ? 'Medium' : 'Low',
-        description: `Calculated from ambient temp ${tempC}°C and humidity ${humidityPercent}% using official NOAA NWS formula.`
+        factor: `${weather.isDemo ? 'Simulated ' : ''}Environmental Heat Index (${heatIndexC}°C / ${heatIndexF}°F)`,
+        impact: heatIndexF >= 103 ? 'High' : heatIndexF >= 90 ? 'Medium' : 'Low',
+        description: `${weather.isDemo ? 'SIMULATED: ' : ''}Calculated from ${weather.isDemo ? 'simulated' : 'ambient'} temp ${tempC}°C and humidity ${humidityPercent}% using official NOAA NWS formula.`
       },
       {
         factor: `Metabolic Load (${actInfo.label.split(' ')[0]})`,
@@ -219,7 +236,7 @@ export class DeterministicHeatRiskService implements HeatRiskService {
     ];
 
     const demoNotice = weather.isDemo
-      ? 'Demo Telemetry Mode: Uses simulated weather data with official NOAA NWS Heat Index standard calculation.'
+      ? 'Demo Telemetry Active: Real-time weather observations unavailable. Risk score is simulated for demonstration only and cannot be verified against actual real-world conditions.'
       : `Live Weather Provider: OpenWeather API (${weather.dataSourceStatus})`;
 
     return {

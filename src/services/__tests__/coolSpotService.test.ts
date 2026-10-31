@@ -271,4 +271,113 @@ describe('CoolSpotService, Geolocation, Origin Selection & Diagnostics Tests', (
 
     expect(spots).toEqual([]);
   });
+
+  it('handles HTTP 503 and gracefully falls back to cached data when available', async () => {
+    const mockSpot = {
+      id: 'osm_node_501',
+      name: 'Resilient Park',
+      category: 'park',
+      latitude: 12.97,
+      longitude: 77.59,
+      distanceKm: 0.5,
+      amenities: ['Trees'],
+      isSampleData: false
+    };
+
+    let fetchCount = 0;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      fetchCount++;
+      if (fetchCount === 1) {
+        return {
+          ok: true,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => [mockSpot]
+        } as Response;
+      }
+      return {
+        ok: false,
+        status: 503,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ error: 'Provider unavailable' })
+      } as Response;
+    });
+
+    // 1. Successful fetch caches the spot
+    const firstCall = await hybridService.getCoolSpots({
+      userCoordinates: { latitude: 12.9716, longitude: 77.5946 },
+      maxDistanceKm: 5
+    });
+    expect(firstCall.length).toBe(1);
+
+    // 2. Next call fails with 503, but returns cached data instead of crashing
+    const secondCall = await hybridService.getCoolSpots({
+      userCoordinates: { latitude: 12.9716, longitude: 77.5946 },
+      maxDistanceKm: 5
+    });
+    expect(secondCall.length).toBe(1);
+    expect(secondCall[0].name).toBe('Resilient Park');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('handles empty results from API gracefully', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      return {
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => []
+      } as Response;
+    });
+
+    const spots = await hybridService.getCoolSpots({
+      userCoordinates: { latitude: 12.9716, longitude: 77.5946 },
+      maxDistanceKm: 5
+    });
+
+    expect(spots).toEqual([]);
+    fetchSpy.mockRestore();
+  });
+
+  it('preserves accurate opening status and unverified AC information', async () => {
+    const mockRawSpot = {
+      id: 'osm_node_701',
+      name: 'Community Center Without AC',
+      category: 'indoor_public',
+      latitude: 12.9716,
+      longitude: 77.5946,
+      isIndoor: true,
+      openStatusVerified: false,
+      isOpenNow: false,
+      operatingHours: 'Public Access / Check Local Hours',
+      amenities: ['Indoor Public Space', 'Drinking Water'],
+      isSampleData: false
+    };
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      return {
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => [mockRawSpot]
+      } as Response;
+    });
+
+    const spots = await hybridService.getCoolSpots({
+      userCoordinates: { latitude: 12.9716, longitude: 77.5946 },
+      maxDistanceKm: 5
+    });
+
+    expect(spots.length).toBe(1);
+    expect(spots[0].openStatusVerified).toBe(false);
+    expect(spots[0].isOpenNow).toBe(false);
+    expect(spots[0].amenities).not.toContain('Air Conditioned');
+    expect(spots[0].amenities).toContain('Indoor Public Space');
+
+    fetchSpy.mockRestore();
+  });
+
+  it('allows explicit retrieval of sample demo sanctuaries', async () => {
+    const sampleSpots = await hybridService.getSampleCoolSpots();
+    expect(sampleSpots.length).toBeGreaterThan(0);
+    expect(sampleSpots.every(s => s.isSampleData === true)).toBe(true);
+  });
 });

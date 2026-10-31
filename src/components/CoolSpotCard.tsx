@@ -9,6 +9,22 @@ interface CoolSpotCardProps {
   onSelect?: (spot: CoolSpot) => void;
 }
 
+const isExplicitlyClosed = (hours?: string): boolean => {
+  if (!hours) return false;
+  const normalized = hours.trim().toLowerCase();
+  // Only classify as Closed when there is explicit, reliable evidence that the entire
+  // venue is closed (e.g. "closed", "permanently closed", "temporarily closed"),
+  // rather than inferring closure from schedules like "Mon-Fri 09:00-18:00; Sat-Sun closed"
+  // or "Closed on public holidays".
+  return (
+    normalized === 'closed' ||
+    normalized === 'permanently closed' ||
+    normalized === 'temporarily closed' ||
+    /^permanently\s+closed(\s+.*)?$/.test(normalized) ||
+    /^temporarily\s+closed(\s+.*)?$/.test(normalized)
+  );
+};
+
 export const CoolSpotCard: React.FC<CoolSpotCardProps> = ({ spot, distanceUnit = 'km', onSelect }) => {
   const handleDirections = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -86,11 +102,22 @@ export const CoolSpotCard: React.FC<CoolSpotCardProps> = ({ spot, distanceUnit =
             <span>{spot.operatingHours}</span>
           </div>
 
-          {spot.openStatusVerified && (
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-              spot.isOpenNow ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-stone-100 text-slate-600 border border-stone-200'
-            }`}>
-              {spot.isOpenNow ? 'Open Now' : 'Closed'}
+          {/* Operating status badge */}
+          {spot.isOpenNow ? (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              Open Now
+            </span>
+          ) : isExplicitlyClosed(spot.operatingHours) ? (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+              Closed
+            </span>
+          ) : spot.openStatusVerified ? (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+              Hours Listed
+            </span>
+          ) : (
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-slate-600 border border-stone-200">
+              Status Unknown
             </span>
           )}
         </div>

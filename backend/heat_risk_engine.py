@@ -131,36 +131,6 @@ def calculate_heat_risk(
         weather.longitude or 77.5946,
     )
 
-    # Heat-index risk categories.
-    if hi_f >= 103.0:
-        level = "Extreme"
-        level_color = "#EF4444"
-        summary = (
-            "DANGER: Environmental heat index indicates potential "
-            "heat cramps, exhaustion, or heat stroke risk with continued exertion."
-        )
-    elif hi_f >= 90.0:
-        level = "High"
-        level_color = "#F97316"
-        summary = (
-            "EXTREME CAUTION: Elevated environmental heat index. "
-            "Heat cramps and heat exhaustion are possible with prolonged exposure."
-        )
-    elif hi_f >= 80.0:
-        level = "Moderate"
-        level_color = "#F59E0B"
-        summary = (
-            "CAUTION: Environmental heat index requires caution. "
-            "Fatigue is possible with prolonged physical activity."
-        )
-    else:
-        level = "Low"
-        level_color = "#10B981"
-        summary = (
-            "Environmental heat index is within mild limits. "
-            "Baseline hydration is recommended."
-        )
-
     # Shade and activity details.
     if not is_daylight:
         shade_desc = (
@@ -215,18 +185,26 @@ def calculate_heat_risk(
     else:
         duration_label = "> 2 hours prolonged exposure"
 
-    # Presentation score. This is a product metric, not a medical probability.
+    # Calibrated HeatShield 0-100 Presentation Score Model
+    # Aligned with official NOAA National Weather Service heat index advisory thresholds:
+    # - HI < 80°F: Normal (Low Risk: baseline score 5 - 20)
+    # - 80°F <= HI < 90°F: Caution (Moderate Risk entry: baseline score 20 - 36)
+    # - 90°F <= HI < 103°F: Extreme Caution (Moderate Risk: baseline score 36 - 65)
+    # - 103°F <= HI < 125°F: Danger (High Risk: baseline score 66 - 85)
+    # - HI >= 125°F: Extreme Danger (Extreme Risk: baseline score 86 - 99)
     if hi_f <= 70.0:
         base_score = 5.0
-    elif hi_f < 80.0:
-        base_score = 5.0 + ((hi_f - 70.0) / 10.0) * 20.0
-    elif hi_f < 90.0:
-        base_score = 26.0 + ((hi_f - 80.0) / 10.0) * 24.0
-    elif hi_f < 103.0:
-        base_score = 51.0 + ((hi_f - 90.0) / 13.0) * 24.0
+    elif hi_f <= 80.0:
+        base_score = 5.0 + ((hi_f - 70.0) / 10.0) * 15.0
+    elif hi_f <= 90.0:
+        base_score = 20.0 + ((hi_f - 80.0) / 10.0) * 16.0
+    elif hi_f <= 103.0:
+        base_score = 36.0 + ((hi_f - 90.0) / 13.0) * 29.0
+    elif hi_f <= 125.0:
+        base_score = 65.0 + ((hi_f - 103.0) / 22.0) * 20.0
     else:
         base_score = min(
-            95.0, 76.0 + ((hi_f - 103.0) / 20.0) * 19.0
+            99.0, 85.0 + ((hi_f - 125.0) / 15.0) * 14.0
         )
 
     act_bonus = (
@@ -261,16 +239,48 @@ def calculate_heat_risk(
         99, max(5, round(base_score + act_bonus + dur_bonus + sun_bonus))
     )
 
+    # Unified risk categories matching presentation score dial:
+    # Low (0-35), Moderate (36-65), High (66-85), Extreme (86-100)
+    # Safeguarded by NOAA Danger (HI >= 103°F) and Extreme Danger (HI >= 125°F)
+    if presentation_score >= 86 or hi_f >= 125.0:
+        level = "Extreme"
+        level_color = "#EF4444"
+        summary = (
+            "DANGER: Extreme environmental heat stress. High risk of "
+            "heat stroke or heat exhaustion with physical exertion."
+        )
+    elif presentation_score >= 66 or hi_f >= 103.0:
+        level = "High"
+        level_color = "#F97316"
+        summary = (
+            "WARNING: Elevated heat risk. Heat cramps and heat exhaustion "
+            "are possible with prolonged exposure."
+        )
+    elif presentation_score >= 36 or hi_f >= 90.0:
+        level = "Moderate"
+        level_color = "#F59E0B"
+        summary = (
+            "CAUTION: Moderate heat index. Fatigue and thermal stress "
+            "are possible with prolonged activity; maintain regular hydration."
+        )
+    else:
+        level = "Low"
+        level_color = "#10B981"
+        summary = (
+            "Environmental heat index is within mild limits. "
+            "Baseline hydration is recommended."
+        )
+
     contributing_factors = [
         {
-            "factor": f"Environmental Heat Index ({hi_c}Â°C / {hi_f}Â°F)",
+            "factor": f"{'Simulated ' if weather.isDemo else ''}Environmental Heat Index ({hi_c}°C / {hi_f}°F)",
             "impact": (
                 "High"
-                if hi_f >= 90
-                else ("Medium" if hi_f >= 80 else "Low")
+                if hi_f >= 103
+                else ("Medium" if hi_f >= 90 else "Low")
             ),
             "description": (
-                f"Calculated from ambient temperature {temp_c}Â°C "
+                f"{'SIMULATED: ' if weather.isDemo else ''}Calculated from {'demo' if weather.isDemo else 'ambient'} temperature {temp_c}°C "
                 f"and humidity {humidity}% using the NOAA/NWS method."
             ),
         },
@@ -314,7 +324,7 @@ def calculate_heat_risk(
     ]
 
     demo_notice = (
-        "Demo Telemetry Mode: Uses simulated weather data."
+        "Demo Telemetry Active: Real-time weather observations unavailable. Risk score is simulated for demonstration only and cannot be verified against actual real-world conditions."
         if weather.isDemo
         else (
             f"Live Weather Provider: OpenWeather API "

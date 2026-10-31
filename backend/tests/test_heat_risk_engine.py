@@ -100,11 +100,123 @@ class TestHeatRiskEngine(unittest.TestCase):
         )
 
         res = calculate_heat_risk(risk_input, weather)
-        self.assertEqual(res.level, "High")  # 32.5°C 60% RH -> ~100.5°F HI -> High
+        self.assertEqual(res.level, "Moderate")  # 32.5°C 60% RH -> 100.9°F HI (NOAA Extreme Caution) -> Moderate Risk (60/100)
         self.assertGreater(res.score, 0)
         self.assertLessEqual(res.score, 100)
         self.assertEqual(len(res.contributingFactors), 4)
         self.assertIn("NOAA National Weather Service", res.disclaimer)
+
+    def test_user_reported_screenshot_parameters(self):
+        # Specific reproduction: 32°C ambient, 56.5% RH, cycling, 45 mins in direct sun at 14:30
+        weather = NormalizedWeatherData(
+            locationName="Bengaluru Central",
+            temperatureC=32.0,
+            humidityPercent=56.5,
+            uvIndex=8.0,
+            wetBulbTempC=25.0,
+            windSpeedKmh=10.0,
+            conditionText="Simulated Demo",
+            isDemo=True,
+            dataSourceStatus="demo_simulated",
+            fetchedAt="2026-10-31T14:30:00Z",
+        )
+        risk_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="cycling",
+            plannedTime="14:30",
+            durationMinutes=45,
+            shadeAvailability="direct_sun",
+        )
+        res = calculate_heat_risk(risk_input, weather)
+        # Verify NOAA Heat Index is 36.1°C / 96.9°F
+        self.assertEqual(res.heatIndexC, 36.1)
+        self.assertEqual(res.heatIndexF, 96.9)
+        # Score is 59/100 (in the Moderate 36-65 band), NOT exaggerated 72/100 High Risk
+        self.assertEqual(res.score, 59)
+        self.assertEqual(res.level, "Moderate")
+        # Notice clearly flags demo provenance
+        self.assertIn("Demo Telemetry Active", res.demoNotice)
+        self.assertIn("SIMULATED:", res.contributingFactors[0]["description"])
+
+    def test_strenuous_activity_and_extended_duration_escalates_to_high_risk(self):
+        # Running for 130 minutes in direct sun at 32°C correctly escalates to High Risk
+        weather = NormalizedWeatherData(
+            locationName="Bengaluru",
+            temperatureC=32.0,
+            humidityPercent=56.5,
+            uvIndex=8.0,
+            wetBulbTempC=25.0,
+            windSpeedKmh=10.0,
+            conditionText="Clear",
+            isDemo=False,
+            dataSourceStatus="live_sensor",
+            fetchedAt="2026-10-31T14:30:00Z",
+        )
+        strenuous_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="running",
+            plannedTime="14:30",
+            durationMinutes=130,
+            shadeAvailability="direct_sun",
+        )
+        res = calculate_heat_risk(strenuous_input, weather)
+        self.assertEqual(res.score, 71)
+        self.assertEqual(res.level, "High")
+
+    def test_monotonic_risk_behavior(self):
+        weather = NormalizedWeatherData(
+            locationName="Bengaluru",
+            temperatureC=32.0,
+            humidityPercent=50.0,
+            uvIndex=7.0,
+            wetBulbTempC=24.0,
+            windSpeedKmh=10.0,
+            conditionText="Clear",
+            isDemo=False,
+            dataSourceStatus="live_sensor",
+            fetchedAt="2026-10-31T12:00:00Z",
+        )
+        base_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="walking",
+            plannedTime="12:00",
+            durationMinutes=30,
+            shadeAvailability="full_shade",
+        )
+        base_res = calculate_heat_risk(base_input, weather)
+
+        # Longer duration increases risk
+        long_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="walking",
+            plannedTime="12:00",
+            durationMinutes=90,
+            shadeAvailability="full_shade",
+        )
+        long_res = calculate_heat_risk(long_input, weather)
+        self.assertGreater(long_res.score, base_res.score)
+
+        # Greater exertion increases risk
+        run_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="running",
+            plannedTime="12:00",
+            durationMinutes=30,
+            shadeAvailability="full_shade",
+        )
+        run_res = calculate_heat_risk(run_input, weather)
+        self.assertGreater(run_res.score, base_res.score)
+
+        # Direct sun increases risk relative to full shade
+        sun_input = HeatRiskInputModel(
+            location="Bengaluru",
+            activity="walking",
+            plannedTime="12:00",
+            durationMinutes=30,
+            shadeAvailability="direct_sun",
+        )
+        sun_res = calculate_heat_risk(sun_input, weather)
+        self.assertGreater(sun_res.score, base_res.score)
 
     def test_invalid_input_validation(self):
         weather = NormalizedWeatherData(

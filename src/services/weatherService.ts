@@ -82,7 +82,7 @@ export class MockWeatherService implements WeatherService {
 export class HybridWeatherService implements WeatherService {
   private mockService = new MockWeatherService();
 
-  private getApiBaseUrl(): string {
+  getApiBaseUrl(): string {
     const customBase = (import.meta.env?.VITE_API_BASE_URL as string) || (import.meta.env?.VITE_WEATHER_API_URL as string);
     if (customBase) {
       const cleanBase = customBase.replace(/\/+$/, '');
@@ -91,47 +91,113 @@ export class HybridWeatherService implements WeatherService {
       }
       return cleanBase.endsWith('/api') ? cleanBase : `${cleanBase}/api`;
     }
+    return 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api';
+  }
+
+  private getApiCandidates(): string[] {
+    const candidates: string[] = [];
+    const primaryBase = this.getApiBaseUrl();
+    candidates.push(primaryBase);
+
     const defaultProdBase = 'https://ywxmdsz1re.execute-api.ap-south-1.amazonaws.com/prod/api';
-    if (import.meta.env?.DEV) {
-      return 'http://127.0.0.1:8000/api';
+    if (!candidates.includes(defaultProdBase)) {
+      candidates.push(defaultProdBase);
     }
-    return defaultProdBase;
+    if (import.meta.env?.DEV) {
+      const localBase = 'http://127.0.0.1:8000/api';
+      if (!candidates.includes(localBase)) {
+        candidates.unshift(localBase);
+      }
+    }
+    return candidates;
   }
 
   async getCurrentWeatherByCoords(lat: number, lon: number): Promise<WeatherData> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const apiBase = this.getApiBaseUrl();
-      const queryUrl = `${apiBase}/weather?lat=${lat}&lon=${lon}&demo=true`;
-      
-      const response = await fetch(queryUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-      clearTimeout(timeoutId);
+    const candidates = this.getApiCandidates();
+    let demoFallback: WeatherData | null = null;
 
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          locationName: data.locationName || `GPS (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
-          temperatureC: Number(data.temperatureC),
-          humidityPercent: Number(data.humidityPercent),
-          uvIndex: Number(data.uvIndex || 0),
-          wetBulbTempC: Number(data.wetBulbTempC || 0),
-          windSpeedKmh: Number(data.windSpeedKmh || 0),
-          conditionText: data.conditionText || 'Clear',
-          isDemo: Boolean(data.isDemo),
-          dataSourceStatus: data.dataSourceStatus || 'live_sensor',
-          fetchedAt: data.fetchedAt || new Date().toISOString(),
-          observationTime: data.observationTime || data.fetchedAt || new Date().toISOString(),
-          latitude: data.latitude ?? lat,
-          longitude: data.longitude ?? lon
-        };
+    // Phase 1: Try each candidate for LIVE weather (without forcing demo=true)
+    for (const base of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const queryUrl = `${base}/weather?lat=${lat}&lon=${lon}`;
+        
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const parsed: WeatherData = {
+            locationName: data.locationName || `GPS (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
+            temperatureC: Number(data.temperatureC),
+            humidityPercent: Number(data.humidityPercent),
+            uvIndex: Number(data.uvIndex || 0),
+            wetBulbTempC: Number(data.wetBulbTempC || 0),
+            windSpeedKmh: Number(data.windSpeedKmh || 0),
+            conditionText: data.conditionText || 'Clear',
+            isDemo: Boolean(data.isDemo),
+            dataSourceStatus: data.dataSourceStatus || (data.isDemo ? 'demo_simulated' : 'live_sensor'),
+            fetchedAt: data.fetchedAt || new Date().toISOString(),
+            observationTime: data.observationTime || data.fetchedAt || new Date().toISOString(),
+            latitude: data.latitude ?? lat,
+            longitude: data.longitude ?? lon
+          };
+
+          if (!parsed.isDemo) {
+            return parsed;
+          } else if (!demoFallback) {
+            demoFallback = parsed;
+          }
+        }
+      } catch {
+        // Fallback to next candidate
       }
-    } catch {
-      // Fallback to mock service if API endpoint unreachable
+    }
+
+    if (demoFallback) {
+      return demoFallback;
+    }
+
+    // Phase 2: If live weather unavailable on all candidates, try demo mode
+    for (const base of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const queryUrl = `${base}/weather?lat=${lat}&lon=${lon}&demo=true`;
+        
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            locationName: data.locationName || `GPS (${lat.toFixed(4)}, ${lon.toFixed(4)})`,
+            temperatureC: Number(data.temperatureC),
+            humidityPercent: Number(data.humidityPercent),
+            uvIndex: Number(data.uvIndex || 0),
+            wetBulbTempC: Number(data.wetBulbTempC || 0),
+            windSpeedKmh: Number(data.windSpeedKmh || 0),
+            conditionText: data.conditionText || 'Clear',
+            isDemo: true,
+            dataSourceStatus: 'demo_simulated',
+            fetchedAt: data.fetchedAt || new Date().toISOString(),
+            observationTime: data.observationTime || data.fetchedAt || new Date().toISOString(),
+            latitude: data.latitude ?? lat,
+            longitude: data.longitude ?? lon
+          };
+        }
+      } catch {
+        // Fallback
+      }
     }
 
     return this.mockService.getCurrentWeatherByCoords(lat, lon);
@@ -146,127 +212,185 @@ export class HybridWeatherService implements WeatherService {
       throw new Error('Invalid location: A location name is required.');
     }
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const apiBase = this.getApiBaseUrl();
-      const queryUrl = `${apiBase}/weather?location=${encodeURIComponent(location.trim())}&demo=true`;
-      
-      const response = await fetch(queryUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-      clearTimeout(timeoutId);
+    const candidates = this.getApiCandidates();
+    let demoFallback: WeatherData | null = null;
 
-      if (response.ok) {
-        const data = await response.json();
-        return {
-          locationName: data.locationName || location,
-          temperatureC: Number(data.temperatureC),
-          humidityPercent: Number(data.humidityPercent),
-          uvIndex: Number(data.uvIndex || 0),
-          wetBulbTempC: Number(data.wetBulbTempC || 0),
-          windSpeedKmh: Number(data.windSpeedKmh || 0),
-          conditionText: data.conditionText || 'Clear',
-          isDemo: Boolean(data.isDemo),
-          dataSourceStatus: data.dataSourceStatus || 'live_sensor',
-          fetchedAt: data.fetchedAt || new Date().toISOString(),
-          observationTime: data.observationTime || data.fetchedAt || new Date().toISOString(),
-          latitude: data.latitude,
-          longitude: data.longitude
-        };
+    // Phase 1: Try each candidate for LIVE weather
+    for (const base of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const queryUrl = `${base}/weather?location=${encodeURIComponent(location.trim())}`;
+        
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const parsed: WeatherData = {
+            locationName: data.locationName || location,
+            temperatureC: Number(data.temperatureC),
+            humidityPercent: Number(data.humidityPercent),
+            uvIndex: Number(data.uvIndex || 0),
+            wetBulbTempC: Number(data.wetBulbTempC || 0),
+            windSpeedKmh: Number(data.windSpeedKmh || 0),
+            conditionText: data.conditionText || 'Clear',
+            isDemo: Boolean(data.isDemo),
+            dataSourceStatus: data.dataSourceStatus || (data.isDemo ? 'demo_simulated' : 'live_sensor'),
+            fetchedAt: data.fetchedAt || new Date().toISOString(),
+            observationTime: data.observationTime || data.fetchedAt || new Date().toISOString(),
+            latitude: data.latitude,
+            longitude: data.longitude
+          };
+
+          if (!parsed.isDemo) {
+            return parsed;
+          } else if (!demoFallback) {
+            demoFallback = parsed;
+          }
+        }
+      } catch {
+        // Fallback
       }
-    } catch {
-      // Fallback
+    }
+
+    if (demoFallback) {
+      return demoFallback;
+    }
+
+    // Phase 2: If live weather unavailable, try demo mode
+    for (const base of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const queryUrl = `${base}/weather?location=${encodeURIComponent(location.trim())}&demo=true`;
+        
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          return {
+            locationName: data.locationName || location,
+            temperatureC: Number(data.temperatureC),
+            humidityPercent: Number(data.humidityPercent),
+            uvIndex: Number(data.uvIndex || 0),
+            wetBulbTempC: Number(data.wetBulbTempC || 0),
+            windSpeedKmh: Number(data.windSpeedKmh || 0),
+            conditionText: data.conditionText || 'Clear',
+            isDemo: true,
+            dataSourceStatus: 'demo_simulated',
+            fetchedAt: data.fetchedAt || new Date().toISOString(),
+            observationTime: data.observationTime || data.fetchedAt || new Date().toISOString(),
+            latitude: data.latitude,
+            longitude: data.longitude
+          };
+        }
+      } catch {
+        // Fallback
+      }
     }
 
     return this.mockService.getCurrentWeather(location, coords);
   }
 
   async getForecastByCoords(lat: number, lon: number): Promise<ForecastDataPoint[]> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const apiBase = this.getApiBaseUrl();
-      const queryUrl = `${apiBase}/forecast?lat=${lat}&lon=${lon}&demo=true`;
+    const candidates = this.getApiCandidates();
+    for (const base of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const queryUrl = `${base}/forecast?lat=${lat}&lon=${lon}`;
 
-      const response = await fetch(queryUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-      clearTimeout(timeoutId);
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        });
+        clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          return data.map((item: any) => ({
-            timestamp: item.timestamp,
-            temperatureC: Number(item.temperatureC),
-            humidityPercent: Number(item.humidityPercent),
-            conditionText: item.conditionText || 'Clear'
-          }));
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            return data.map((item: any) => ({
+              timestamp: item.timestamp,
+              temperatureC: Number(item.temperatureC),
+              humidityPercent: Number(item.humidityPercent),
+              conditionText: item.conditionText || 'Clear'
+            }));
+          }
         }
+      } catch {
+        // Fallback
       }
-    } catch {
-      // Fallback
     }
 
     return this.mockService.getForecastByCoords(lat, lon);
   }
 
   async getForecast(location: string): Promise<ForecastDataPoint[]> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const apiBase = this.getApiBaseUrl();
-      const queryUrl = `${apiBase}/forecast?location=${encodeURIComponent(location.trim())}&demo=true`;
+    const candidates = this.getApiCandidates();
+    for (const base of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const queryUrl = `${base}/forecast?location=${encodeURIComponent(location.trim())}`;
 
-      const response = await fetch(queryUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-      clearTimeout(timeoutId);
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        });
+        clearTimeout(timeoutId);
 
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          return data.map((item: any) => ({
-            timestamp: item.timestamp,
-            temperatureC: Number(item.temperatureC),
-            humidityPercent: Number(item.humidityPercent),
-            conditionText: item.conditionText || 'Clear'
-          }));
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data) && data.length > 0) {
+            return data.map((item: any) => ({
+              timestamp: item.timestamp,
+              temperatureC: Number(item.temperatureC),
+              humidityPercent: Number(item.humidityPercent),
+              conditionText: item.conditionText || 'Clear'
+            }));
+          }
         }
+      } catch {
+        // Fallback
       }
-    } catch {
-      // Fallback
     }
 
     return this.mockService.getForecast(location);
   }
 
   async getOvernightForecast(lat: number, lon: number): Promise<any> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const apiBase = this.getApiBaseUrl();
-      const queryUrl = `${apiBase}/overnight-forecast?lat=${lat}&lon=${lon}&demo=true`;
+    const candidates = this.getApiCandidates();
+    for (const base of candidates) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const queryUrl = `${base}/overnight-forecast?lat=${lat}&lon=${lon}`;
 
-      const response = await fetch(queryUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: { Accept: 'application/json' }
-      });
-      clearTimeout(timeoutId);
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: { Accept: 'application/json' }
+        });
+        clearTimeout(timeoutId);
 
-      if (response.ok) {
-        return await response.json();
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch {
+        // Fallback
       }
-    } catch {
-      // Fallback
     }
 
     return null;

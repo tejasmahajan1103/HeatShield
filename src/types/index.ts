@@ -83,6 +83,7 @@ export interface HeatRiskInput {
   longitude?: number;
   destination?: DestinationState | null;
   route?: RouteInfo | null;
+  weatherOverride?: WeatherData;
 }
 
 export interface ContributingFactor {
@@ -129,6 +130,10 @@ export interface CoolSpot {
   address: string;
   amenities: string[];
   isSampleData: boolean;
+  dataSourceStatus?: 'osm_live' | 'osm_live_cached' | 'demo_simulated';
+  cachedAt?: string;
+  cacheAgeSeconds?: number;
+  isStaleCached?: boolean;
 }
 
 export interface AlternativeTimeWindow {

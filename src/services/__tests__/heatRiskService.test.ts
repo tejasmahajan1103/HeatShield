@@ -1,14 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   DeterministicHeatRiskService,
   calculateNOAAHeatIndex,
   celsiusToFahrenheit,
   fahrenheitToCelsius
 } from '../heatRiskService';
-import type { HeatRiskInput } from '../../types';
+import type { HeatRiskInput, WeatherData } from '../../types';
 
 describe('DeterministicHeatRiskService & NOAA Heat Index Validation Tests', () => {
   const service = new DeterministicHeatRiskService();
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('converts temperature units accurately between Celsius and Fahrenheit', () => {
     expect(celsiusToFahrenheit(0)).toBe(32);
@@ -108,8 +112,8 @@ describe('DeterministicHeatRiskService & NOAA Heat Index Validation Tests', () =
   }, 15000);
 
   it('throws descriptive error on missing input, missing location, or invalid duration bounds', async () => {
-    // @ts-expect-error Testing invalid null input
-    await expect(service.calculateRisk(null)).rejects.toThrow('Invalid input');
+
+    await expect(service.calculateRisk(null as unknown as HeatRiskInput)).rejects.toThrow('Invalid input');
 
     const invalidLocInput = {
       location: '   ',
@@ -223,6 +227,100 @@ describe('DeterministicHeatRiskService & NOAA Heat Index Validation Tests', () =
     expect(nightSolar?.factor).toContain('Nighttime');
     expect(nightSolar?.description).toContain('absent after sunset');
     expect(nightRes.score).toBeLessThan(dayRes.score);
+  });
+
+  it('correctly calculates user screenshot scenario (32°C, 56.5% RH, cycling, 45m, direct sun) as Moderate (59/100)', async () => {
+    // 32°C, 56.5% RH -> NOAA HI = 96.9°F (36.1°C) -> NOAA Extreme Caution band
+    // baseScore: 36 + (96.9 - 90)/13 * 29 = 51.4
+    // cycling adjustment: +3
+    // 45 min duration adjustment: 0
+    // direct sun midday (14:30): +5
+    // total score: round(59.4) = 59 (Moderate Risk)
+    const hi = calculateNOAAHeatIndex(32, 56.5);
+    expect(hi.heatIndexC).toBeCloseTo(36.1, 1);
+    expect(hi.heatIndexF).toBeCloseTo(96.9, 1);
+
+    const mockWeather: WeatherData = {
+      locationName: 'Bengaluru Central District',
+      temperatureC: 32,
+      humidityPercent: 56.5,
+      uvIndex: 8.0,
+      wetBulbTempC: 25.0,
+      windSpeedKmh: 10.0,
+      conditionText: 'Simulated Demo',
+      isDemo: true,
+      dataSourceStatus: 'demo_simulated',
+      fetchedAt: new Date().toISOString()
+    };
+
+    const input: HeatRiskInput = {
+      location: 'Bengaluru Central District',
+      activity: 'cycling',
+      plannedTime: '14:30',
+      durationMinutes: 45,
+      shadeAvailability: 'direct_sun',
+      weatherOverride: mockWeather
+    };
+
+    const res = await service.calculateRisk(input);
+    expect(res.score).toBe(59);
+    expect(res.level).toBe('Moderate');
+    expect(res.heatIndexC).toBeCloseTo(36.1, 1);
+    expect(res.demoNotice).toBeDefined();
+    expect(res.demoNotice).toContain('Demo Telemetry');
+  });
+
+  it('escalates to High Risk for strenuous activity and extended exposure under 32°C conditions', async () => {
+    const mockWeather: WeatherData = {
+      locationName: 'Bengaluru Central District',
+      temperatureC: 32,
+      humidityPercent: 56.5,
+      uvIndex: 8.0,
+      wetBulbTempC: 25.0,
+      windSpeedKmh: 10.0,
+      conditionText: 'Clear',
+      isDemo: false,
+      dataSourceStatus: 'live_sensor',
+      fetchedAt: new Date().toISOString()
+    };
+
+    const input: HeatRiskInput = {
+      location: 'Bengaluru Central District',
+      activity: 'running', // +8
+      plannedTime: '14:30',
+      durationMinutes: 130, // +7
+      shadeAvailability: 'direct_sun', // +5
+      weatherOverride: mockWeather
+    };
+
+    const res = await service.calculateRisk(input);
+    // base 51.4 + 8 + 7 + 5 = 71.4 -> 71 (High Risk)
+    expect(res.score).toBe(71);
+    expect(res.level).toBe('High');
+  });
+
+  it('verifies strict monotonic behavior across duration, exertion, and shade levels', async () => {
+    const baseInput: HeatRiskInput = {
+      location: 'Bengaluru Central District',
+      activity: 'walking',
+      plannedTime: '14:30',
+      durationMinutes: 30,
+      shadeAvailability: 'full_shade'
+    };
+
+    const baseRes = await service.calculateRisk(baseInput);
+
+    // 1. Longer duration should not reduce risk
+    const longerRes = await service.calculateRisk({ ...baseInput, durationMinutes: 90 });
+    expect(longerRes.score).toBeGreaterThanOrEqual(baseRes.score);
+
+    // 2. Higher physical exertion should not reduce risk
+    const runningRes = await service.calculateRisk({ ...baseInput, activity: 'running' });
+    expect(runningRes.score).toBeGreaterThanOrEqual(baseRes.score);
+
+    // 3. Direct sun should not reduce risk compared to full shade
+    const sunRes = await service.calculateRisk({ ...baseInput, shadeAvailability: 'direct_sun' });
+    expect(sunRes.score).toBeGreaterThanOrEqual(baseRes.score);
   });
 });
 

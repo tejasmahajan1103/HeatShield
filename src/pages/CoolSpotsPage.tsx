@@ -25,6 +25,8 @@ import { CoolSpotCard } from '../components/CoolSpotCard';
 import { CoolSpotMap } from '../components/CoolSpotMap';
 import { useUserLocation } from '../context/UserLocationContext';
 
+const DEFAULT_COORDS = { latitude: 12.9716, longitude: 77.5946 };
+
 export const CoolSpotsPage: React.FC = () => {
   const userLoc = useUserLocation();
   const [spots, setSpots] = useState<CoolSpot[]>([]);
@@ -53,7 +55,7 @@ export const CoolSpotsPage: React.FC = () => {
   const effectiveUserCoords = useMemo(() => {
     return (userLat !== null && userLon !== null && userLat !== undefined && userLon !== undefined)
       ? { latitude: userLat, longitude: userLon }
-      : userCoordinates;
+      : (userCoordinates || DEFAULT_COORDS);
   }, [userLat, userLon, userCoordinates]);
 
   const effectiveDestCoords = useMemo(() => {
@@ -163,7 +165,8 @@ export const CoolSpotsPage: React.FC = () => {
     setOriginType('current');
   };
 
-  const hasLiveData = spots.some(s => s.isSampleData === false);
+  const hasLiveData = spots.some(s => s.isSampleData === false && s.dataSourceStatus !== 'osm_live_cached');
+  const isCachedLive = spots.some(s => s.isSampleData === false && s.dataSourceStatus === 'osm_live_cached');
 
   const categories: { id: CoolSpotCategory | 'all'; label: string; icon: any }[] = [
     { id: 'all', label: 'All CoolSpots', icon: MapPin },
@@ -182,6 +185,24 @@ export const CoolSpotsPage: React.FC = () => {
     verifiedWaterOnly ||
     originType !== 'current';
 
+  const handleLoadSampleData = async () => {
+    setIsFetching(true);
+    setFetchError(null);
+    try {
+      const sampleSpots = await coolSpotService.getSampleCoolSpots({
+        category: selectedCategory,
+        searchQuery,
+        maxDistanceKm,
+        verifiedShadeOnly,
+        verifiedWaterOnly,
+        originType
+      });
+      setSpots(sampleSpots);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* Page Header */}
@@ -191,15 +212,19 @@ export const CoolSpotsPage: React.FC = () => {
             <span className="text-xs font-semibold uppercase tracking-wider text-[#009F87]">CoolSpot Discovery</span>
             <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${hasLiveData
                 ? 'bg-teal-50 text-teal-800 border-teal-200'
-                : 'bg-amber-50 text-amber-800 border-amber-200/80'
+                : isCachedLive
+                  ? 'bg-sky-50 text-sky-800 border-sky-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200/80'
               }`}>
               {hasLiveData
                 ? 'OpenStreetMap Live Data'
-                : fetchError
-                  ? 'Live Data Temporarily Unavailable'
-                  : spots.length > 0
-                    ? 'Sample Data'
-                    : 'Waiting for Location Data'}
+                : isCachedLive
+                  ? 'OpenStreetMap Live Data (Cached)'
+                  : fetchError
+                    ? 'Live Data Temporarily Unavailable'
+                    : spots.length > 0
+                      ? 'Sample Demonstration Data (Bengaluru)'
+                      : 'Waiting for Location Data'}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#102C4C] mt-1">Cooling Sanctuaries</h1>
@@ -395,14 +420,17 @@ export const CoolSpotsPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <div>
-              <span className="font-bold">Showing previous results {lastSuccessTime ? `from ${lastSuccessTime}` : ''}: </span>
+              <span className="font-bold">
+                {isCachedLive ? 'Showing previously cached live results' : 'Showing previous results'}
+                {lastSuccessTime ? ` from ${lastSuccessTime}` : ''}:{' '}
+              </span>
               <span>{fetchError}</span>
             </div>
           </div>
           <button
             type="button"
             onClick={fetchSpots}
-            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 transition"
+            className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 transition cursor-pointer"
           >
             Retry Refresh
           </button>
@@ -421,16 +449,29 @@ export const CoolSpotsPage: React.FC = () => {
           <div className="bg-rose-50 border border-rose-200 rounded-3xl p-8 text-center space-y-4">
             <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto" />
             <div>
-              <h3 className="text-base font-bold text-rose-950">Error Loading Cooling Sanctuaries</h3>
-              <p className="text-xs text-rose-800 mt-1">{fetchError}</p>
+              <h3 className="text-base font-bold text-rose-950">Live Cooling Sanctuaries Temporarily Busy</h3>
+              <p className="text-xs text-rose-800 mt-1 max-w-lg mx-auto leading-relaxed">
+                {fetchError.includes('503') || fetchError.includes('TIMEOUT')
+                  ? 'OpenStreetMap Overpass servers are currently experiencing heavy query traffic or timeouts.'
+                  : fetchError}
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={fetchSpots}
-              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition"
-            >
-              Retry Geographic Discovery
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={fetchSpots}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                Retry Live Discovery
+              </button>
+              <button
+                type="button"
+                onClick={handleLoadSampleData}
+                className="px-4 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-50 text-slate-700 font-bold text-xs shadow-sm transition cursor-pointer"
+              >
+                View Sample Sanctuaries (Demo)
+              </button>
+            </div>
           </div>
         ) : activeTab === 'split' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">

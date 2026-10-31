@@ -17,36 +17,46 @@ class HeatShieldHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        query_params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
-        res = route_api_request("GET", path, query_params, {})
-        self.send_response(res["statusCode"])
-        for k, v in res["headers"].items():
-            self.send_header(k, v)
-        self.end_headers()
-        self.wfile.write(res["body"].encode("utf-8"))
+        try:
+            parsed = urllib.parse.urlparse(self.path)
+            path = parsed.path
+            query_params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
+            res = route_api_request("GET", path, query_params, {})
+            body_bytes = res["body"].encode("utf-8")
+            self.send_response(res["statusCode"])
+            for k, v in res["headers"].items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(body_bytes)))
+            self.end_headers()
+            self.wfile.write(body_bytes)
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
 
     def do_POST(self):
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        query_params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
+        try:
+            parsed = urllib.parse.urlparse(self.path)
+            path = parsed.path
+            query_params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body_bytes = self.rfile.read(content_length) if content_length > 0 else b""
-        body_json = {}
-        if body_bytes:
-            try:
-                body_json = json.loads(body_bytes.decode("utf-8"))
-            except Exception:
-                pass
+            content_length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(content_length) if content_length > 0 else b""
+            body_json = {}
+            if body_bytes:
+                try:
+                    body_json = json.loads(body_bytes.decode("utf-8"))
+                except Exception:
+                    pass
 
-        res = route_api_request("POST", path, query_params, body_json)
-        self.send_response(res["statusCode"])
-        for k, v in res["headers"].items():
-            self.send_header(k, v)
-        self.end_headers()
-        self.wfile.write(res["body"].encode("utf-8"))
+            res = route_api_request("POST", path, query_params, body_json)
+            res_body_bytes = res["body"].encode("utf-8")
+            self.send_response(res["statusCode"])
+            for k, v in res["headers"].items():
+                self.send_header(k, v)
+            self.send_header("Content-Length", str(len(res_body_bytes)))
+            self.end_headers()
+            self.wfile.write(res_body_bytes)
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
 
 def run_server(host: str = HOST, port: int = PORT):
     server_address = (host, port)
